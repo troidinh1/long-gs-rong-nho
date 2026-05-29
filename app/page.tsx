@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent } from "react";
+import { FormEvent, useState } from "react";
 
 const zaloPhone = "0896456068";
 const zaloLink = `https://zalo.me/${zaloPhone}`;
@@ -84,22 +84,54 @@ const faqs = [
 ];
 
 export default function Home() {
-  function handleOrder(e: FormEvent<HTMLFormElement>) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderMessage, setOrderMessage] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  async function handleOrder(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    const formData = new FormData(e.currentTarget);
-    const name = String(formData.get("name") || "");
-    const phone = String(formData.get("phone") || "");
-    const product = String(formData.get("product") || "");
-    const note = String(formData.get("note") || "");
+    setIsSubmitting(true);
+    setOrderMessage("");
+    setIsSuccess(false);
 
-    const message = `Xin chào LONG GS, tôi muốn đặt hàng rong nho.
-Họ tên: ${name}
-Số điện thoại: ${phone}
-Sản phẩm quan tâm: ${product}
-Ghi chú: ${note}`;
+    const form = e.currentTarget;
+    const formData = new FormData(form);
 
-    window.open(`${zaloLink}?text=${encodeURIComponent(message)}`, "_blank");
+    const orderData = {
+      name: String(formData.get("name") || "").trim(),
+      phone: String(formData.get("phone") || "").trim(),
+      product: String(formData.get("product") || "").trim(),
+      note: String(formData.get("note") || "").trim(),
+    };
+
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setIsSuccess(false);
+        setOrderMessage(result.message || "Gửi đơn hàng thất bại.");
+        return;
+      }
+
+      setIsSuccess(true);
+      setOrderMessage("Đặt hàng thành công! LONG GS sẽ liên hệ lại sớm.");
+      form.reset();
+    } catch (error) {
+      console.error(error);
+      setIsSuccess(false);
+      setOrderMessage("Có lỗi xảy ra. Vui lòng thử lại.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -276,7 +308,7 @@ Ghi chú: ${note}`;
           </div>
         </div>
 
-        {/* BẢNG GIÁ NGAY DƯỚI HERO */}
+        {/* BẢNG GIÁ */}
         <div
           id="bang-gia"
           className="relative mx-auto max-w-7xl px-4 pb-16 md:px-8"
@@ -584,8 +616,8 @@ Ghi chú: ${note}`;
             </h2>
 
             <p className="mt-6 text-lg leading-9 text-slate-600">
-              Hiện tại chưa cần backend. Khi khách bấm gửi, website sẽ mở Zalo
-              để bạn tư vấn và chốt đơn trực tiếp.
+              Khi khách gửi form, thông tin sẽ được lưu vào hệ thống đơn hàng.
+              LONG GS sẽ liên hệ lại để tư vấn và chốt đơn.
             </p>
 
             <div className="mt-8 rounded-[2rem] bg-emerald-50 p-7">
@@ -678,10 +710,35 @@ Ghi chú: ${note}`;
 
               <button
                 type="submit"
-                className="rounded-2xl bg-emerald-700 px-8 py-4 text-base font-black text-white shadow-xl shadow-emerald-900/20 transition hover:bg-emerald-800"
+                disabled={isSubmitting}
+                className="rounded-2xl bg-emerald-700 px-8 py-4 text-base font-black text-white shadow-xl shadow-emerald-900/20 transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Gửi thông tin qua Zalo
+                {isSubmitting ? "Đang gửi đơn..." : "Gửi đơn đặt hàng"}
               </button>
+
+              {orderMessage && (
+                <div
+                  className={`rounded-2xl px-5 py-4 text-sm font-bold ${
+                    isSuccess
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "bg-red-50 text-red-700"
+                  }`}
+                >
+                  {orderMessage}
+
+                  {isSuccess && (
+                    <div className="mt-3">
+                      <a
+                        href={zaloLink}
+                        target="_blank"
+                        className="inline-flex rounded-xl bg-emerald-700 px-4 py-2 text-sm font-black text-white"
+                      >
+                        Nhắn Zalo để tư vấn nhanh
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </form>
         </div>
