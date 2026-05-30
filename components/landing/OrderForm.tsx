@@ -56,8 +56,12 @@ export default function OrderForm() {
       }
 
       setIsSuccess(true);
-      setOrderMessage("Đặt hàng thành công! LONG GS sẽ liên hệ lại sớm.");
+      setOrderMessage("Đặt hàng thành công! Đang chuyển sang trang cảm ơn...");
       form.reset();
+
+      setTimeout(() => {
+        window.location.href = "/thank-you";
+      }, 800);
     } catch (error) {
       console.error(error);
       setIsSuccess(false);
@@ -81,7 +85,8 @@ export default function OrderForm() {
 
           <p className="mt-6 text-lg leading-9 text-slate-600">
             Khi khách gửi form, thông tin sẽ được lưu vào hệ thống đơn hàng.
-            LONG GS sẽ liên hệ lại để tư vấn và chốt đơn.
+            LONG GS sẽ liên hệ lại để tư vấn, xác nhận sản phẩm và hỗ trợ giao
+            hàng.
           </p>
 
           <div className="mt-8 rounded-[2rem] bg-emerald-50 p-7">
