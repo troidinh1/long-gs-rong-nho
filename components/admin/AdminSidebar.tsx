@@ -14,11 +14,11 @@ const navItems = [
     label: "Sản phẩm",
     icon: "🛍️",
   },
- {
-  href: "/admin/categories",
-  label: "Danh mục",
-  icon: "🏷️",
-},
+  {
+    href: "/admin/categories",
+    label: "Danh mục",
+    icon: "🏷️",
+  },
   {
     href: "/admin/customers",
     label: "Khách hàng",
@@ -29,7 +29,6 @@ const navItems = [
     href: "/admin/reports",
     label: "Báo cáo",
     icon: "📊",
-    disabled: true,
   },
   {
     href: "/admin/settings",
@@ -121,13 +120,13 @@ export default function AdminSidebar() {
           Xem website
         </a>
 
-      <button
-  type="button"
-  onClick={handleLogout}
-  className="flex w-full cursor-pointer items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-red-600"
->
-  Đăng xuất
-</button>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full cursor-pointer items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-red-600"
+        >
+          Đăng xuất
+        </button>
       </div>
     </aside>
   );

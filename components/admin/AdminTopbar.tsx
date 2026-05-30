@@ -16,6 +16,10 @@ const navItems = [
     href: "/admin/categories",
     label: "Danh mục",
   },
+  {
+    href: "/admin/reports",
+    label: "Báo cáo",
+  },
 ];
 
 export default function AdminTopbar() {
@@ -43,12 +47,12 @@ export default function AdminTopbar() {
         </Link>
 
         <button
-  type="button"
-  onClick={handleLogout}
-  className="cursor-pointer rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white"
->
-  Đăng xuất
-</button>
+          type="button"
+          onClick={handleLogout}
+          className="cursor-pointer rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white"
+        >
+          Đăng xuất
+        </button>
       </div>
 
       <div className="flex gap-2 overflow-x-auto px-4 pb-3">
