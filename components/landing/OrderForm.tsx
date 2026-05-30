@@ -3,43 +3,84 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { formatVND } from "@/lib/money";
 import { Product } from "@/types/product";
-import { zaloLink } from "./data";
+import { useCart } from "./CartProvider";
 
-type CustomerType = "retail" | "dealer";
+const zaloPhone = "0896456068";
+const zaloLink = "https://zalo.me/0896456068";
+const facebookLink = "https://www.facebook.com/khaive1s";
+
+const fallbackProducts: Product[] = [
+  {
+    id: "fallback-250g",
+    name: "Rong nho LONG GS 250g",
+    weight: "250g",
+    price: 80000,
+    description: "Dùng thử",
+    image_url: "/images/product-rong-nho.png",
+    badge: "Dùng thử",
+    is_active: true,
+    sort_order: 1,
+    created_at: "",
+    category_id: null,
+    categories: null,
+  },
+  {
+    id: "fallback-500g",
+    name: "Rong nho LONG GS 500g",
+    weight: "500g",
+    price: 150000,
+    description: "Gia đình",
+    image_url: "/images/product-rong-nho.png",
+    badge: "Gia đình",
+    is_active: true,
+    sort_order: 2,
+    created_at: "",
+    category_id: null,
+    categories: null,
+  },
+  {
+    id: "fallback-1kg",
+    name: "Rong nho LONG GS 1kg",
+    weight: "1kg",
+    price: 300000,
+    description: "Đại lý",
+    image_url: "/images/product-rong-nho.png",
+    badge: "Đại lý",
+    is_active: true,
+    sort_order: 3,
+    created_at: "",
+    category_id: null,
+    categories: null,
+  },
+];
 
 export default function OrderForm() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState("");
+  const [products, setProducts] = useState<Product[]>(fallbackProducts);
+  const [selectedProductId, setSelectedProductId] = useState(
+    fallbackProducts[0].id,
+  );
   const [quantity, setQuantity] = useState(1);
-  const [customerType, setCustomerType] = useState<CustomerType>("retail");
-
-  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [customerType, setCustomerType] = useState("retail");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [orderMessage, setOrderMessage] = useState("");
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const { items, cartTotal, cartCount, clearCart } = useCart();
 
   async function fetchProducts() {
     try {
-      setIsLoadingProducts(true);
-
       const response = await fetch("/api/products");
       const result = await response.json();
 
-      if (!response.ok) {
-        console.error(result.message || "Không thể lấy sản phẩm.");
-        return;
-      }
+      if (!response.ok) return;
 
-      const activeProducts: Product[] = result.products || [];
-      setProducts(activeProducts);
+      const productList: Product[] = result.products || [];
 
-      if (activeProducts.length > 0) {
-        setSelectedProductId(activeProducts[0].id);
+      if (productList.length > 0) {
+        setProducts(productList);
+        setSelectedProductId(productList[0].id);
       }
     } catch (error) {
-      console.error("Fetch order products error:", error);
-    } finally {
-      setIsLoadingProducts(false);
+      console.error("Fetch order form products error:", error);
     }
   }
 
@@ -48,42 +89,63 @@ export default function OrderForm() {
   }, []);
 
   const selectedProduct = useMemo(() => {
-    return products.find((product) => product.id === selectedProductId);
+    return (
+      products.find((product) => product.id === selectedProductId) ||
+      products[0] ||
+      fallbackProducts[0]
+    );
   }, [products, selectedProductId]);
 
-  const totalPrice = useMemo(() => {
-    if (!selectedProduct) return 0;
+  const singleProductTotal = useMemo(() => {
     return selectedProduct.price * quantity;
   }, [selectedProduct, quantity]);
+
+  const finalTotal = items.length > 0 ? cartTotal : singleProductTotal;
 
   async function handleOrder(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    if (!selectedProduct) {
-      setIsSuccess(false);
-      setOrderMessage("Vui lòng chọn sản phẩm trước khi đặt hàng.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setOrderMessage("");
-    setIsSuccess(false);
-
     const form = e.currentTarget;
     const formData = new FormData(form);
 
-    const orderData = {
-      name: String(formData.get("name") || "").trim(),
-      phone: String(formData.get("phone") || "").trim(),
-      product: `${selectedProduct.name} - ${formatVND(selectedProduct.price)}`,
-      quantity,
-      address: String(formData.get("address") || "").trim(),
-      customer_type: customerType,
-      total_price: totalPrice,
-      note: String(formData.get("note") || "").trim(),
-    };
+    setIsSubmitting(true);
+    setMessage("");
+
+    const name = String(formData.get("name") || "").trim();
+    const phone = String(formData.get("phone") || "").trim();
+    const address = String(formData.get("address") || "").trim();
+    const note = String(formData.get("note") || "").trim();
+
+    if (!name || !phone) {
+      setMessage("Vui lòng nhập tên và số điện thoại.");
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
+      const cartProductSummary = items
+        .map(
+          (item) =>
+            `${item.name} x${item.quantity} - ${formatVND(
+              item.price * item.quantity,
+            )}`,
+        )
+        .join(" | ");
+
+      const orderData = {
+        name,
+        phone,
+        product:
+          items.length > 0
+            ? cartProductSummary
+            : `${selectedProduct.name} - ${formatVND(selectedProduct.price)}`,
+        quantity: items.length > 0 ? cartCount : quantity,
+        address,
+        customer_type: customerType,
+        total_price: finalTotal,
+        note,
+      };
+
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: {
@@ -92,198 +154,226 @@ export default function OrderForm() {
         body: JSON.stringify(orderData),
       });
 
-      const text = await response.text();
-
-      let result;
-
-      try {
-        result = JSON.parse(text);
-      } catch {
-        console.error("API không trả về JSON:", text);
-        setIsSuccess(false);
-        setOrderMessage(
-          "API đặt hàng đang lỗi hoặc chưa được tạo đúng. Kiểm tra terminal để xem lỗi."
-        );
-        return;
-      }
+      const result = await response.json();
 
       if (!response.ok) {
-        setIsSuccess(false);
-        setOrderMessage(result.message || "Gửi đơn hàng thất bại.");
+        setMessage(result.message || "Không thể gửi đơn hàng.");
         return;
       }
 
-      setIsSuccess(true);
-      setOrderMessage("Đặt hàng thành công! Đang chuyển sang trang cảm ơn...");
+      setMessage("Đặt hàng thành công! LONG GS sẽ liên hệ lại sớm.");
+
       form.reset();
       setQuantity(1);
       setCustomerType("retail");
-
-      if (products.length > 0) {
-        setSelectedProductId(products[0].id);
-      }
+      clearCart();
 
       setTimeout(() => {
         window.location.href = "/thank-you";
-      }, 800);
+      }, 700);
     } catch (error) {
-      console.error(error);
-      setIsSuccess(false);
-      setOrderMessage("Có lỗi xảy ra. Vui lòng thử lại.");
+      console.error("Order submit error:", error);
+      setMessage("Có lỗi xảy ra khi gửi đơn hàng.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <section id="dat-hang" className="bg-white px-4 py-20 md:px-8">
-      <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-2">
+    <section
+      id="dat-hang"
+      className="relative overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f0fdf4_100%)] px-4 py-20 md:px-8"
+    >
+      <div className="pointer-events-none absolute -left-40 top-20 h-96 w-96 rounded-full bg-emerald-100 blur-3xl" />
+      <div className="pointer-events-none absolute -right-40 bottom-20 h-96 w-96 rounded-full bg-sky-100 blur-3xl" />
+
+      <div className="relative mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
         <div>
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-emerald-700">
-            Đặt hàng
+          <p className="text-sm font-black uppercase tracking-[0.24em] text-emerald-700">
+            Đặt hàng LONG GS
           </p>
 
-          <h2 className="mt-4 text-4xl font-black tracking-tight text-[#071027] md:text-5xl">
-            Để lại thông tin, LONG GS tư vấn qua Zalo.
+          <h2 className="mt-4 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
+            Gửi thông tin, LONG GS sẽ tư vấn và chốt đơn nhanh
           </h2>
 
-          <p className="mt-6 text-lg leading-9 text-slate-600">
-            Chọn sản phẩm, số lượng và để lại thông tin. Hệ thống sẽ ghi nhận
-            đơn hàng, gửi thông báo về email và LONG GS sẽ liên hệ lại để xác
-            nhận.
+          <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600">
+            Bạn có thể đặt một sản phẩm trực tiếp trong form hoặc thêm nhiều sản
+            phẩm vào giỏ hàng trước rồi gửi đơn. Thông tin sẽ được lưu vào hệ
+            thống và gửi email thông báo cho admin.
           </p>
 
-          <div className="mt-8 rounded-[2rem] bg-emerald-50 p-7">
-            <h3 className="text-xl font-black text-[#071027]">
+          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-xl">
+                🛒
+              </div>
+              <p className="mt-4 font-black text-slate-950">Chọn sản phẩm</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Thêm một hoặc nhiều sản phẩm vào giỏ.
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 text-xl">
+                📞
+              </div>
+              <p className="mt-4 font-black text-slate-950">Tư vấn nhanh</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                LONG GS liên hệ lại qua số điện thoại.
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-xl">
+                🚚
+              </div>
+              <p className="mt-4 font-black text-slate-950">Giao hàng</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Hỗ trợ giao hàng toàn quốc.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-8 rounded-[2rem] border border-emerald-100 bg-emerald-50 p-6">
+            <h3 className="text-xl font-black text-slate-950">
               Thông tin liên hệ
             </h3>
 
-            <div className="mt-5 space-y-3 text-slate-600">
+            <div className="mt-4 grid gap-3 text-sm font-semibold text-slate-600">
               <p>
-                <strong>Zalo:</strong> 0896456068
+                Zalo:{" "}
+                <a
+                  href={zaloLink}
+                  target="_blank"
+                  className="font-black text-emerald-700 hover:underline"
+                >
+                  {zaloPhone}
+                </a>
               </p>
 
               <p>
-                <strong>Facebook:</strong>{" "}
+                Facebook:{" "}
                 <a
-                  href="https://www.facebook.com/khaive1s"
+                  href={facebookLink}
                   target="_blank"
-                  className="font-black text-emerald-700 underline"
+                  className="font-black text-emerald-700 hover:underline"
                 >
                   facebook.com/khaive1s
                 </a>
               </p>
 
-              <p>
-                <strong>Email:</strong> hmq2507@gmail.com
-              </p>
-
-              <p>
-                <strong>Địa chỉ:</strong> Trần Phú, Nha Trang, Khánh Hòa
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-sm">
-            <h3 className="text-xl font-black text-[#071027]">
-              Tóm tắt đơn hàng
-            </h3>
-
-            <div className="mt-4 space-y-3 text-slate-600">
-              <p>
-                <strong>Sản phẩm:</strong>{" "}
-                {selectedProduct ? selectedProduct.name : "Chưa chọn"}
-              </p>
-
-              <p>
-                <strong>Số lượng:</strong> {quantity}
-              </p>
-
-              <p>
-                <strong>Loại khách:</strong>{" "}
-                {customerType === "dealer" ? "Đại lý / nhập sỉ" : "Khách lẻ"}
-              </p>
-
-              <p className="text-xl font-black text-emerald-700">
-                Tạm tính: {formatVND(totalPrice)}
-              </p>
+              <p>Email: hmq2507@gmail.com</p>
+              <p>Địa chỉ: Trần Phú, Nha Trang, Khánh Hòa</p>
             </div>
           </div>
         </div>
 
         <form
           onSubmit={handleOrder}
-          className="rounded-[2rem] border border-emerald-100 bg-white p-7 shadow-2xl shadow-slate-900/10"
+          className="rounded-[2.5rem] border border-emerald-100 bg-white p-6 shadow-2xl shadow-emerald-950/10 md:p-8"
         >
-          <div className="grid gap-5">
+          <div className="mb-6">
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-emerald-700">
+              Form đặt hàng
+            </p>
+
+            <h3 className="mt-2 text-3xl font-black text-slate-950">
+              Thông tin đơn hàng
+            </h3>
+
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Nếu giỏ hàng có sản phẩm, đơn sẽ lấy theo giỏ hàng. Nếu giỏ trống,
+              đơn sẽ lấy sản phẩm được chọn trong form.
+            </p>
+          </div>
+
+          {items.length > 0 && (
+            <div className="mb-6 rounded-[2rem] border border-emerald-100 bg-emerald-50 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-black text-slate-950">
+                    Giỏ hàng hiện có {cartCount} sản phẩm
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Đơn hàng sẽ được tạo theo danh sách sản phẩm trong giỏ.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={clearCart}
+                  className="cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-black text-red-600 shadow-sm"
+                >
+                  Xóa giỏ
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 rounded-2xl bg-white p-3 text-sm"
+                  >
+                    <div>
+                      <p className="font-black text-slate-950">{item.name}</p>
+                      <p className="mt-1 text-slate-500">
+                        {item.weight} x{item.quantity}
+                      </p>
+                    </div>
+
+                    <p className="font-black text-emerald-700">
+                      {formatVND(item.price * item.quantity)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-5 md:grid-cols-2">
             <div>
-              <label className="mb-2 block font-black text-[#071027]">
-                Họ và tên
+              <label className="mb-2 block font-black text-slate-950">
+                Tên khách hàng
               </label>
               <input
                 name="name"
                 required
                 placeholder="Ví dụ: Nguyễn Văn A"
-                className="w-full rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                className="w-full rounded-2xl border border-slate-200 px-5 py-4 font-semibold outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
               />
             </div>
 
             <div>
-              <label className="mb-2 block font-black text-[#071027]">
+              <label className="mb-2 block font-black text-slate-950">
                 Số điện thoại
               </label>
               <input
                 name="phone"
                 required
                 placeholder="Ví dụ: 09xxxxxxxx"
-                className="w-full rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                className="w-full rounded-2xl border border-slate-200 px-5 py-4 font-semibold outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
               />
             </div>
 
             <div>
-              <label className="mb-2 block font-black text-[#071027]">
+              <label className="mb-2 block font-black text-slate-950">
                 Loại khách
               </label>
               <select
                 value={customerType}
-                onChange={(e) => setCustomerType(e.target.value as CustomerType)}
-                className="w-full rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                onChange={(e) => setCustomerType(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 px-5 py-4 font-semibold outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
               >
-                <option value="retail">Khách lẻ / mua dùng</option>
-                <option value="dealer">Đại lý / nhập bán</option>
+                <option value="retail">Khách lẻ</option>
+                <option value="dealer">Đại lý</option>
               </select>
             </div>
 
             <div>
-              <label className="mb-2 block font-black text-[#071027]">
-                Sản phẩm quan tâm
-              </label>
-
-              <select
-                value={selectedProductId}
-                onChange={(e) => setSelectedProductId(e.target.value)}
-                disabled={isLoadingProducts || products.length === 0}
-                className="w-full rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-              >
-                {isLoadingProducts ? (
-                  <option>Đang tải sản phẩm...</option>
-                ) : products.length === 0 ? (
-                  <option>Chưa có sản phẩm</option>
-                ) : (
-                  products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name} - {formatVND(product.price)}
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-2 block font-black text-[#071027]">
+              <label className="mb-2 block font-black text-slate-950">
                 Số lượng
               </label>
-
               <input
                 type="number"
                 min={1}
@@ -291,78 +381,112 @@ export default function OrderForm() {
                 onChange={(e) =>
                   setQuantity(Math.max(1, Number(e.target.value || 1)))
                 }
-                className="w-full rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                disabled={items.length > 0}
+                className="w-full rounded-2xl border border-slate-200 px-5 py-4 font-semibold outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-100 disabled:text-slate-400"
               />
+              {items.length > 0 && (
+                <p className="mt-2 text-xs font-bold text-slate-400">
+                  Số lượng đang lấy theo giỏ hàng.
+                </p>
+              )}
             </div>
 
-            <div>
-              <label className="mb-2 block font-black text-[#071027]">
-                Địa chỉ giao hàng
+            <div className="md:col-span-2">
+              <label className="mb-2 block font-black text-slate-950">
+                Sản phẩm quan tâm
               </label>
 
+              <select
+                value={selectedProductId}
+                onChange={(e) => setSelectedProductId(e.target.value)}
+                disabled={items.length > 0}
+                className="w-full rounded-2xl border border-slate-200 px-5 py-4 font-semibold outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                {products.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name} - {formatVND(product.price)}
+                  </option>
+                ))}
+              </select>
+
+              {items.length > 0 && (
+                <p className="mt-2 text-xs font-bold text-slate-400">
+                  Sản phẩm đang lấy theo giỏ hàng.
+                </p>
+              )}
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="mb-2 block font-black text-slate-950">
+                Địa chỉ giao hàng
+              </label>
               <input
                 name="address"
-                placeholder="Ví dụ: Trần Phú, Nha Trang, Khánh Hòa"
-                className="w-full rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                placeholder="Ví dụ: Trần Phú, Nha Trang"
+                className="w-full rounded-2xl border border-slate-200 px-5 py-4 font-semibold outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
               />
             </div>
 
-            <div className="rounded-2xl bg-emerald-50 p-5">
-              <p className="text-sm font-bold text-slate-500">
-                Tổng tiền tạm tính
-              </p>
-              <p className="mt-1 text-3xl font-black text-emerald-700">
-                {formatVND(totalPrice)}
-              </p>
-              <p className="mt-2 text-sm text-slate-500">
-                Giá cuối cùng sẽ được LONG GS xác nhận lại khi tư vấn.
-              </p>
-            </div>
-
-            <div>
-              <label className="mb-2 block font-black text-[#071027]">
+            <div className="md:col-span-2">
+              <label className="mb-2 block font-black text-slate-950">
                 Ghi chú
               </label>
               <textarea
                 name="note"
                 rows={4}
-                placeholder="Ví dụ: Tôi muốn giao buổi chiều..."
-                className="w-full resize-none rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                placeholder="Ví dụ: Tôi muốn mua 2 hộp 500g, giao trong hôm nay..."
+                className="w-full resize-none rounded-2xl border border-slate-200 px-5 py-4 font-semibold outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
               />
             </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting || !selectedProduct}
-              className="rounded-2xl bg-emerald-700 px-8 py-4 text-base font-black text-white shadow-xl shadow-emerald-900/20 transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? "Đang gửi đơn..." : "Gửi đơn đặt hàng"}
-            </button>
-
-            {orderMessage && (
-              <div
-                className={`rounded-2xl px-5 py-4 text-sm font-bold ${
-                  isSuccess
-                    ? "bg-emerald-50 text-emerald-800"
-                    : "bg-red-50 text-red-700"
-                }`}
-              >
-                {orderMessage}
-
-                {isSuccess && (
-                  <div className="mt-3">
-                    <a
-                      href={zaloLink}
-                      target="_blank"
-                      className="inline-flex rounded-xl bg-emerald-700 px-4 py-2 text-sm font-black text-white"
-                    >
-                      Nhắn Zalo để tư vấn nhanh
-                    </a>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
+
+          <div className="mt-6 rounded-[2rem] bg-slate-950 p-5 text-white">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold text-slate-400">
+                  Tổng tạm tính
+                </p>
+
+                <p className="mt-1 text-3xl font-black text-emerald-300">
+                  {formatVND(finalTotal)}
+                </p>
+              </div>
+
+              <div className="text-right text-sm font-bold text-slate-300">
+                {items.length > 0 ? (
+                  <p>{cartCount} sản phẩm trong giỏ</p>
+                ) : (
+                  <p>
+                    {selectedProduct.weight} x{quantity}
+                  </p>
+                )}
+
+                <p className="mt-1">Chưa gồm phí vận chuyển</p>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="mt-6 w-full cursor-pointer rounded-2xl bg-emerald-700 px-6 py-4 font-black text-white shadow-xl shadow-emerald-900/20 transition hover:-translate-y-0.5 hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSubmitting ? "Đang gửi đơn..." : "Gửi đơn đặt hàng"}
+          </button>
+
+          {message && (
+            <div className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm font-black text-emerald-700">
+              {message}
+            </div>
+          )}
+
+          <a
+            href={zaloLink}
+            target="_blank"
+            className="mt-4 flex w-full items-center justify-center rounded-2xl border border-emerald-200 bg-white px-6 py-4 font-black text-emerald-700 transition hover:bg-emerald-50"
+          >
+            Nhắn Zalo để tư vấn nhanh
+          </a>
         </form>
       </div>
     </section>

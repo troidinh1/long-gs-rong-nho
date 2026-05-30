@@ -5,12 +5,15 @@ import { useEffect, useMemo, useState } from "react";
 import { formatVND } from "@/lib/money";
 import { Category } from "@/types/category";
 import { Product } from "@/types/product";
+import { useCart } from "./CartProvider";
 
 export default function Pricing() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
+
+  const { addToCart } = useCart();
 
   async function fetchData() {
     try {
@@ -46,7 +49,7 @@ export default function Pricing() {
     if (activeCategoryId === "all") return products;
 
     return products.filter(
-      (product) => product.category_id === activeCategoryId
+      (product) => product.category_id === activeCategoryId,
     );
   }, [products, activeCategoryId]);
 
@@ -111,7 +114,7 @@ export default function Pricing() {
 
             {categories.map((category) => {
               const count = products.filter(
-                (product) => product.category_id === category.id
+                (product) => product.category_id === category.id,
               ).length;
 
               return (
@@ -169,7 +172,9 @@ export default function Pricing() {
             <div className="grid gap-0 lg:grid-cols-[0.9fr_1.1fr]">
               <div className="relative min-h-[320px] bg-gradient-to-br from-emerald-100 to-sky-100">
                 <Image
-                  src={featuredProduct.image_url || "/images/product-rong-nho.png"}
+                  src={
+                    featuredProduct.image_url || "/images/product-rong-nho.png"
+                  }
                   alt={featuredProduct.name}
                   fill
                   sizes="(max-width: 1024px) 100vw, 45vw"
@@ -208,12 +213,13 @@ export default function Pricing() {
                     </p>
                   </div>
 
-                  <a
-                    href="#dat-hang"
-                    className="rounded-2xl bg-white px-7 py-4 text-base font-black text-slate-950 transition hover:bg-emerald-100"
+                  <button
+                    type="button"
+                    onClick={() => addToCart(featuredProduct)}
+                    className="cursor-pointer rounded-2xl bg-white px-7 py-4 text-base font-black text-slate-950 transition hover:bg-emerald-100"
                   >
-                    Đặt sản phẩm này
-                  </a>
+                    Thêm vào giỏ
+                  </button>
                 </div>
               </div>
             </div>
@@ -309,12 +315,13 @@ export default function Pricing() {
                         </p>
                       </div>
 
-                      <a
-                        href="#dat-hang"
-                        className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700"
+                      <button
+                        type="button"
+                        onClick={() => addToCart(item)}
+                        className="cursor-pointer rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700"
                       >
-                        Đặt
-                      </a>
+                        Thêm
+                      </button>
                     </div>
                   </div>
                 </article>

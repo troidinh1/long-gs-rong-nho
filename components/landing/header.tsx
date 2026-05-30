@@ -1,7 +1,12 @@
+"use client";
+
 import Image from "next/image";
+import { useCart } from "./CartProvider";
 import { zaloLink } from "./data";
 
 export default function Header() {
+  const { cartCount, openCart } = useCart();
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/90 backdrop-blur-2xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-8">
@@ -42,22 +47,25 @@ export default function Header() {
           </a>
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
-          <a
-            href="#dat-hang"
-            className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-xl shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-50"
-            aria-label="Giỏ hàng"
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={openCart}
+            className="relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white text-xl shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-50"
+            aria-label="Mở giỏ hàng"
           >
             🛒
-            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-black text-white">
-              +
-            </span>
-          </a>
+            {cartCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1 text-[11px] font-black text-white">
+                {cartCount}
+              </span>
+            )}
+          </button>
 
           <a
             href={zaloLink}
             target="_blank"
-            className="rounded-2xl bg-slate-950 px-6 py-3 text-sm font-black text-white shadow-xl shadow-slate-950/20 transition hover:-translate-y-0.5 hover:bg-emerald-700"
+            className="hidden rounded-2xl bg-slate-950 px-6 py-3 text-sm font-black text-white shadow-xl shadow-slate-950/20 transition hover:-translate-y-0.5 hover:bg-emerald-700 md:inline-flex"
           >
             Tư vấn Zalo
           </a>
