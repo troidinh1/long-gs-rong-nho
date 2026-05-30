@@ -1,6 +1,6 @@
-
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { sendOrderEmail } from "@/lib/sendOrderEmail";
 
 export async function POST(request: Request) {
   try {
@@ -39,10 +39,21 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Không thể lưu đơn hàng. Vui lòng thử lại.",
+          message: error.message || "Không thể lưu đơn hàng.",
         },
         { status: 500 }
       );
+    }
+
+    try {
+      await sendOrderEmail({
+        name,
+        phone,
+        product,
+        note,
+      });
+    } catch (emailError) {
+      console.error("Order saved but email failed:", emailError);
     }
 
     return NextResponse.json({
@@ -56,7 +67,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        message: "Có lỗi xảy ra. Vui lòng thử lại.",
+        message: "Có lỗi xảy ra trong API đặt hàng.",
       },
       { status: 500 }
     );
