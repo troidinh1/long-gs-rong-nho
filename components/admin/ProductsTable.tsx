@@ -19,8 +19,10 @@ export default function ProductsTable() {
   const [products, setProducts] = useState<Product[]>([]);
   const [formData, setFormData] = useState<ProductFormData>(emptyForm);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState("");
 
   async function fetchProducts() {
@@ -69,6 +71,45 @@ export default function ProductsTable() {
     }));
   }
 
+  async function handleImageUpload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    setIsUploading(true);
+    setMessage("");
+
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", file);
+
+      const response = await fetch("/api/admin/upload-product-image", {
+        method: "POST",
+        body: uploadFormData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setMessage(result.message || "Upload ảnh thất bại.");
+        return;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        image_url: result.imageUrl,
+      }));
+
+      setMessage("Upload ảnh thành công. Link ảnh đã được điền vào form.");
+    } catch (error) {
+      console.error(error);
+      setMessage("Có lỗi xảy ra khi upload ảnh.");
+    } finally {
+      setIsUploading(false);
+      e.target.value = "";
+    }
+  }
+
   function startCreate() {
     setEditingProductId(null);
     setFormData(emptyForm);
@@ -77,12 +118,13 @@ export default function ProductsTable() {
 
   function startEdit(product: Product) {
     setEditingProductId(product.id);
+
     setFormData({
       name: product.name,
       weight: product.weight,
       price: String(product.price),
       description: product.description || "",
-      image_url: product.image_url,
+      image_url: product.image_url || "/images/product-rong-nho.png",
       badge: product.badge || "",
       is_active: product.is_active,
       sort_order: String(product.sort_order),
@@ -116,7 +158,16 @@ export default function ProductsTable() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name,
+          weight: formData.weight,
+          price: Number(formData.price || 0),
+          description: formData.description,
+          image_url: formData.image_url || "/images/product-rong-nho.png",
+          badge: formData.badge,
+          is_active: formData.is_active,
+          sort_order: Number(formData.sort_order || 0),
+        }),
       });
 
       const result = await response.json();
@@ -153,7 +204,7 @@ export default function ProductsTable() {
           weight: product.weight,
           price: product.price,
           description: product.description || "",
-          image_url: product.image_url,
+          image_url: product.image_url || "/images/product-rong-nho.png",
           badge: product.badge || "",
           is_active: !product.is_active,
           sort_order: product.sort_order,
@@ -261,6 +312,7 @@ export default function ProductsTable() {
             <input
               name="price"
               type="number"
+              min={0}
               value={formData.price}
               onChange={handleChange}
               required
@@ -280,15 +332,50 @@ export default function ProductsTable() {
             />
           </div>
 
-          <div>
+          <div className="md:col-span-2">
             <label className="mb-2 block font-bold">Ảnh sản phẩm</label>
-            <input
-              name="image_url"
-              value={formData.image_url}
-              onChange={handleChange}
-              placeholder="/images/product-rong-nho.png"
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-            />
+
+            <div className="grid gap-3 md:grid-cols-[1fr_220px]">
+              <input
+                name="image_url"
+                value={formData.image_url}
+                onChange={handleChange}
+                placeholder="/images/product-rong-nho.png hoặc link ảnh Supabase"
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+              />
+
+              <label
+                className={`flex cursor-pointer items-center justify-center rounded-2xl px-4 py-3 text-center font-black text-white transition ${
+                  isUploading
+                    ? "cursor-not-allowed bg-slate-400"
+                    : "bg-slate-900 hover:bg-emerald-700"
+                }`}
+              >
+                {isUploading ? "Đang upload..." : "Upload ảnh"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={isUploading}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {formData.image_url && (
+              <div className="mt-4 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                <p className="mb-2 text-sm font-bold text-slate-500">
+                  Xem trước ảnh:
+                </p>
+
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={formData.image_url}
+                  alt="Xem trước sản phẩm"
+                  className="h-44 w-full rounded-xl object-contain"
+                />
+              </div>
+            )}
           </div>
 
           <div>
@@ -303,6 +390,16 @@ export default function ProductsTable() {
             />
           </div>
 
+          <label className="flex items-center gap-3 font-bold md:self-end">
+            <input
+              type="checkbox"
+              checked={formData.is_active}
+              onChange={handleCheckboxChange}
+              className="h-5 w-5"
+            />
+            Hiển thị sản phẩm trên trang chủ
+          </label>
+
           <div className="md:col-span-2">
             <label className="mb-2 block font-bold">Mô tả</label>
             <textarea
@@ -315,20 +412,10 @@ export default function ProductsTable() {
             />
           </div>
 
-          <label className="flex items-center gap-3 font-bold md:col-span-2">
-            <input
-              type="checkbox"
-              checked={formData.is_active}
-              onChange={handleCheckboxChange}
-              className="h-5 w-5"
-            />
-            Hiển thị sản phẩm trên trang chủ
-          </label>
-
           <div className="md:col-span-2">
             <button
               type="submit"
-              disabled={isSaving}
+              disabled={isSaving || isUploading}
               className="rounded-2xl bg-emerald-700 px-6 py-3 font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving
@@ -372,84 +459,170 @@ export default function ProductsTable() {
         ) : products.length === 0 ? (
           <div className="p-8 text-center font-bold">Chưa có sản phẩm nào.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] border-collapse text-left">
-              <thead className="bg-emerald-700 text-white">
-                <tr>
-                  <th className="p-4">Thứ tự</th>
-                  <th className="p-4">Tên sản phẩm</th>
-                  <th className="p-4">Khối lượng</th>
-                  <th className="p-4">Giá</th>
-                  <th className="p-4">Nhãn</th>
-                  <th className="p-4">Hiển thị</th>
-                  <th className="p-4">Thao tác</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {products.map((product) => (
-                  <tr key={product.id} className="border-b border-slate-100">
-                    <td className="p-4 font-bold">{product.sort_order}</td>
-
-                    <td className="p-4">
-                      <p className="font-black">{product.name}</p>
-                      <p className="mt-1 max-w-[320px] text-sm text-slate-500">
-                        {product.description || "Không có mô tả"}
-                      </p>
-                    </td>
-
-                    <td className="p-4 font-semibold">{product.weight}</td>
-
-                    <td className="p-4 font-black text-emerald-700">
-                      {formatVND(product.price)}
-                    </td>
-
-                    <td className="p-4">{product.badge || "Không có"}</td>
-
-                    <td className="p-4">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-black ${
-                          product.is_active
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-                        {product.is_active ? "Đang hiện" : "Đang ẩn"}
-                      </span>
-                    </td>
-
-                    <td className="p-4">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(product)}
-                          className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-200"
-                        >
-                          Sửa
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => toggleProduct(product)}
-                          className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-black text-amber-700 transition hover:bg-amber-100"
-                        >
-                          {product.is_active ? "Ẩn" : "Hiện"}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => deleteProduct(product.id)}
-                          className="rounded-xl bg-red-50 px-3 py-2 text-sm font-black text-red-700 transition hover:bg-red-100"
-                        >
-                          Xóa
-                        </button>
-                      </div>
-                    </td>
+          <>
+            <div className="hidden overflow-x-auto lg:block">
+              <table className="w-full min-w-[1100px] border-collapse text-left">
+                <thead className="bg-emerald-700 text-white">
+                  <tr>
+                    <th className="p-4">Thứ tự</th>
+                    <th className="p-4">Ảnh</th>
+                    <th className="p-4">Tên sản phẩm</th>
+                    <th className="p-4">Khối lượng</th>
+                    <th className="p-4">Giá</th>
+                    <th className="p-4">Nhãn</th>
+                    <th className="p-4">Hiển thị</th>
+                    <th className="p-4">Thao tác</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+
+                <tbody>
+                  {products.map((product) => (
+                    <tr key={product.id} className="border-b border-slate-100">
+                      <td className="p-4 font-bold">{product.sort_order}</td>
+
+                      <td className="p-4">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={product.image_url || "/images/product-rong-nho.png"}
+                          alt={product.name}
+                          className="h-16 w-16 rounded-xl object-cover"
+                        />
+                      </td>
+
+                      <td className="p-4">
+                        <p className="font-black">{product.name}</p>
+                        <p className="mt-1 max-w-[320px] text-sm text-slate-500">
+                          {product.description || "Không có mô tả"}
+                        </p>
+                      </td>
+
+                      <td className="p-4 font-semibold">{product.weight}</td>
+
+                      <td className="p-4 font-black text-emerald-700">
+                        {formatVND(product.price)}
+                      </td>
+
+                      <td className="p-4">{product.badge || "Không có"}</td>
+
+                      <td className="p-4">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-black ${
+                            product.is_active
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {product.is_active ? "Đang hiện" : "Đang ẩn"}
+                        </span>
+                      </td>
+
+                      <td className="p-4">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(product)}
+                            className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-200"
+                          >
+                            Sửa
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => toggleProduct(product)}
+                            className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-black text-amber-700 transition hover:bg-amber-100"
+                          >
+                            {product.is_active ? "Ẩn" : "Hiện"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => deleteProduct(product.id)}
+                            className="rounded-xl bg-red-50 px-3 py-2 text-sm font-black text-red-700 transition hover:bg-red-100"
+                          >
+                            Xóa
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="grid gap-4 p-4 lg:hidden">
+              {products.map((product) => (
+                <div
+                  key={product.id}
+                  className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+                >
+                  <div className="flex gap-4">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={product.image_url || "/images/product-rong-nho.png"}
+                      alt={product.name}
+                      className="h-20 w-20 rounded-xl object-cover"
+                    />
+
+                    <div className="min-w-0 flex-1">
+                      <p className="font-black">{product.name}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {product.weight} - {formatVND(product.price)}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {product.badge || "Không có nhãn"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-sm text-slate-500">
+                    {product.description || "Không có mô tả"}
+                  </p>
+
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-black ${
+                        product.is_active
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {product.is_active ? "Đang hiện" : "Đang ẩn"}
+                    </span>
+
+                    <span className="text-sm font-bold text-slate-500">
+                      Thứ tự: {product.sort_order}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(product)}
+                      className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-200"
+                    >
+                      Sửa
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleProduct(product)}
+                      className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-black text-amber-700 transition hover:bg-amber-100"
+                    >
+                      {product.is_active ? "Ẩn" : "Hiện"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => deleteProduct(product.id)}
+                      className="rounded-xl bg-red-50 px-3 py-2 text-sm font-black text-red-700 transition hover:bg-red-100"
+                    >
+                      Xóa
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </section>
     </div>
