@@ -1,19 +1,12 @@
-export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
+export function formatVND(value: number) {
+  return new Intl.NumberFormat("vi-VN").format(value) + "đ";
+}
 
-export type Order = {
-  id: string;
-  name: string;
-  phone: string;
-  product: string;
-  note: string | null;
-  status: OrderStatus;
-  created_at: string;
-};
+export function formatDateTime(value: string) {
+  if (!value) return "Không có thời gian";
 
-export type OrderFormData = {
-  name: string;
-  phone: string;
-  product: string;
-  note: string;
-  status?: OrderStatus;
-};
+  return new Intl.DateTimeFormat("vi-VN", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
