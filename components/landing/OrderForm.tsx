@@ -131,6 +131,26 @@ export default function OrderForm() {
             )}`,
         )
         .join(" | ");
+      const orderItems =
+        items.length > 0
+          ? items.map((item) => ({
+              product_id: item.id,
+              product_name: item.name,
+              product_weight: item.weight,
+              unit_price: item.price,
+              quantity: item.quantity,
+              line_total: item.price * item.quantity,
+            }))
+          : [
+              {
+                product_id: selectedProduct.id,
+                product_name: selectedProduct.name,
+                product_weight: selectedProduct.weight,
+                unit_price: selectedProduct.price,
+                quantity,
+                line_total: selectedProduct.price * quantity,
+              },
+            ];
 
       const orderData = {
         name,
@@ -144,6 +164,7 @@ export default function OrderForm() {
         customer_type: customerType,
         total_price: finalTotal,
         note,
+        items: orderItems,
       };
 
       const response = await fetch("/api/orders", {
