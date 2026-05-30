@@ -7,16 +7,20 @@ const statusMap: Record<
     className: string;
   }
 > = {
-  new: {
-    label: "Đơn mới",
+  pending: {
+    label: "Chờ xác nhận",
     className: "bg-blue-50 text-blue-700",
   },
-  contacted: {
-    label: "Đã liên hệ",
+  preparing: {
+    label: "Chờ lấy hàng",
     className: "bg-amber-50 text-amber-700",
   },
-  confirmed: {
-    label: "Đã chốt",
+  shipping: {
+    label: "Chờ giao hàng",
+    className: "bg-purple-50 text-purple-700",
+  },
+  completed: {
+    label: "Đánh giá",
     className: "bg-emerald-50 text-emerald-700",
   },
   cancelled: {
@@ -25,18 +29,14 @@ const statusMap: Record<
   },
 };
 
-export default function OrderStatusBadge({
-  status,
-}: {
-  status: OrderStatus;
-}) {
-  const currentStatus = statusMap[status] || statusMap.new;
+export default function OrderStatusBadge({ status }: { status: OrderStatus }) {
+  const statusInfo = statusMap[status] || statusMap.pending;
 
   return (
     <span
-      className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${currentStatus.className}`}
+      className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${statusInfo.className}`}
     >
-      {currentStatus.label}
+      {statusInfo.label}
     </span>
   );
 }

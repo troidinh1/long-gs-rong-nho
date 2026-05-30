@@ -89,7 +89,7 @@ export default function CustomersTable() {
       0,
     );
 
-    const totalConfirmedOrders = customers.reduce(
+    const totalCompletedOrders = customers.reduce(
       (sum, customer) => sum + Number(customer.confirmed_orders || 0),
       0,
     );
@@ -99,7 +99,7 @@ export default function CustomersTable() {
       dealerCustomers,
       retailCustomers: totalCustomers - dealerCustomers,
       totalRevenue,
-      totalConfirmedOrders,
+      totalCompletedOrders,
     };
   }, [customers]);
 
@@ -150,9 +150,8 @@ export default function CustomersTable() {
             </h1>
 
             <p className="mt-2 max-w-2xl text-slate-500">
-              Khách hàng được lưu vào bảng customers thật. Khi có đơn mới hoặc
-              đổi trạng thái đơn, hệ thống sẽ tự đồng bộ tổng đơn, tổng tiền và
-              lần mua gần nhất.
+              Khách hàng được lưu vào bảng customers thật. Doanh thu và số đơn
+              hoàn tất được tính theo trạng thái Đánh giá.
             </p>
           </div>
 
@@ -196,15 +195,15 @@ export default function CustomersTable() {
           tone="green"
         />
         <StatCard
-          label="Đơn đã chốt"
-          value={stats.totalConfirmedOrders}
+          label="Đơn hoàn tất"
+          value={stats.totalCompletedOrders}
           note="Từ tất cả khách"
           tone="amber"
         />
         <StatCard
           label="Doanh thu khách"
           value={formatVND(stats.totalRevenue)}
-          note="Tổng đơn đã chốt"
+          note="Tổng đơn hoàn tất"
           tone="green"
         />
       </section>
@@ -266,7 +265,7 @@ export default function CustomersTable() {
                     <th className="px-5 py-4">Khách hàng</th>
                     <th className="px-5 py-4">Loại khách</th>
                     <th className="px-5 py-4">Tổng đơn</th>
-                    <th className="px-5 py-4">Đã chốt</th>
+                    <th className="px-5 py-4">Hoàn tất</th>
                     <th className="px-5 py-4">Tổng chi tiêu</th>
                     <th className="px-5 py-4">Mua gần nhất</th>
                     <th className="px-5 py-4 text-right">Thao tác</th>
@@ -397,7 +396,7 @@ export default function CustomersTable() {
                         value={customer.total_orders}
                       />
                       <MiniInfo
-                        label="Đã chốt"
+                        label="Hoàn tất"
                         value={customer.confirmed_orders}
                       />
                       <MiniInfo

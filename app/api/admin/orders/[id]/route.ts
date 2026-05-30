@@ -37,7 +37,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     const phone = String(body.phone || "").trim();
     const product = String(body.product || "").trim();
     const note = String(body.note || "").trim();
-    const status = String(body.status || "new").trim();
+    const status = String(body.status || "pending").trim();
     const quantity = Number(body.quantity || 1);
     const address = String(body.address || "").trim();
     const customer_type = String(body.customer_type || "retail").trim();

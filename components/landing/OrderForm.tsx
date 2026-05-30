@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { formatVND } from "@/lib/money";
+import { formatVND } from "@/lib/format";
 import { Product } from "@/types/product";
 import { useCart } from "./CartProvider";
 
@@ -131,6 +131,7 @@ export default function OrderForm() {
             )}`,
         )
         .join(" | ");
+
       const orderItems =
         items.length > 0
           ? items.map((item) => ({
@@ -182,7 +183,13 @@ export default function OrderForm() {
         return;
       }
 
-      setMessage("Đặt hàng thành công! LONG GS sẽ liên hệ lại sớm.");
+      const createdOrderCode = result.order?.order_code || "";
+
+      setMessage(
+        createdOrderCode
+          ? `Đặt hàng thành công! Mã đơn của bạn là ${createdOrderCode}.`
+          : "Đặt hàng thành công! LONG GS sẽ liên hệ lại sớm.",
+      );
 
       form.reset();
       setQuantity(1);
@@ -190,8 +197,13 @@ export default function OrderForm() {
       clearCart();
 
       setTimeout(() => {
+        if (createdOrderCode) {
+          window.location.href = `/thank-you?order_code=${createdOrderCode}&phone=${phone}`;
+          return;
+        }
+
         window.location.href = "/thank-you";
-      }, 700);
+      }, 900);
     } catch (error) {
       console.error("Order submit error:", error);
       setMessage("Có lỗi xảy ra khi gửi đơn hàng.");
@@ -220,8 +232,8 @@ export default function OrderForm() {
 
           <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600">
             Bạn có thể đặt một sản phẩm trực tiếp trong form hoặc thêm nhiều sản
-            phẩm vào giỏ hàng trước rồi gửi đơn. Thông tin sẽ được lưu vào hệ
-            thống và gửi email thông báo cho admin.
+            phẩm vào giỏ hàng trước rồi gửi đơn. Sau khi đặt hàng, bạn có thể
+            dùng mã đơn để tra cứu trạng thái.
           </p>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -237,11 +249,11 @@ export default function OrderForm() {
 
             <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 text-xl">
-                📞
+                📦
               </div>
-              <p className="mt-4 font-black text-slate-950">Tư vấn nhanh</p>
+              <p className="mt-4 font-black text-slate-950">Tra cứu đơn</p>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                LONG GS liên hệ lại qua số điện thoại.
+                Khách có thể theo dõi trạng thái bằng mã đơn.
               </p>
             </div>
 
@@ -502,9 +514,16 @@ export default function OrderForm() {
           )}
 
           <a
+            href="/tra-cuu-don-hang"
+            className="mt-4 flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-4 font-black text-slate-700 transition hover:bg-slate-50"
+          >
+            Tra cứu đơn hàng của bạn
+          </a>
+
+          <a
             href={zaloLink}
             target="_blank"
-            className="mt-4 flex w-full items-center justify-center rounded-2xl border border-emerald-200 bg-white px-6 py-4 font-black text-emerald-700 transition hover:bg-emerald-50"
+            className="mt-3 flex w-full items-center justify-center rounded-2xl border border-emerald-200 bg-white px-6 py-4 font-black text-emerald-700 transition hover:bg-emerald-50"
           >
             Nhắn Zalo để tư vấn nhanh
           </a>

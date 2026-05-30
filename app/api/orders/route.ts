@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { sendOrderEmail } from "@/lib/sendOrderEmail";
 import { normalizePhone, syncCustomerFromOrder } from "@/lib/customerSync";
+import { sendOrderEmail } from "@/lib/sendOrderEmail";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type OrderItemInput = {
   product_id?: string | null;
@@ -20,6 +20,13 @@ function isUuid(value: string | null | undefined) {
   );
 }
 
+function createOrderCode() {
+  const randomText = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const timeText = Date.now().toString().slice(-4);
+
+  return `LGS${timeText}${randomText}`;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -28,13 +35,15 @@ export async function POST(request: Request) {
     const phone = String(body.phone || "").trim();
     const product = String(body.product || "").trim();
     const note = String(body.note || "").trim();
-    const status = String(body.status || "new").trim();
+    const status = String(body.status || "pending").trim();
     const quantity = Number(body.quantity || 1);
     const address = String(body.address || "").trim();
     const customer_type = String(body.customer_type || "retail").trim();
     const total_price = Number(body.total_price || 0);
     const items: OrderItemInput[] = Array.isArray(body.items) ? body.items : [];
+
     const normalized_phone = normalizePhone(phone);
+    const order_code = createOrderCode();
 
     if (!name || !phone) {
       return NextResponse.json(
@@ -66,6 +75,7 @@ export async function POST(request: Request) {
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .insert({
+        order_code,
         name,
         phone,
         product,

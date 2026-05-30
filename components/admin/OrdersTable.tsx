@@ -1,6 +1,13 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  Fragment,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { formatDateTime, formatVND } from "@/lib/format";
 import { Order, OrderFormData, OrderStatus } from "@/types/order";
 import OrderStatusBadge from "./OrderStatusBadge";
@@ -10,7 +17,7 @@ const emptyForm: OrderFormData = {
   phone: "",
   product: "Rong nho 500g - 150.000đ",
   note: "",
-  status: "new",
+  status: "pending",
   quantity: "1",
   address: "",
   customer_type: "retail",
@@ -19,16 +26,18 @@ const emptyForm: OrderFormData = {
 
 const statusOptions: { value: OrderStatus | "all"; label: string }[] = [
   { value: "all", label: "Tất cả" },
-  { value: "new", label: "Đơn mới" },
-  { value: "contacted", label: "Đã liên hệ" },
-  { value: "confirmed", label: "Đã chốt" },
+  { value: "pending", label: "Chờ xác nhận" },
+  { value: "preparing", label: "Chờ lấy hàng" },
+  { value: "shipping", label: "Chờ giao hàng" },
+  { value: "completed", label: "Đánh giá" },
   { value: "cancelled", label: "Đã hủy" },
 ];
 
 const statusEditOptions: { value: OrderStatus; label: string }[] = [
-  { value: "new", label: "Đơn mới" },
-  { value: "contacted", label: "Đã liên hệ" },
-  { value: "confirmed", label: "Đã chốt" },
+  { value: "pending", label: "Chờ xác nhận" },
+  { value: "preparing", label: "Chờ lấy hàng" },
+  { value: "shipping", label: "Chờ giao hàng" },
+  { value: "completed", label: "Đánh giá" },
   { value: "cancelled", label: "Đã hủy" },
 ];
 
@@ -50,10 +59,14 @@ export default function OrdersTable() {
       setIsLoading(true);
       setMessage("");
 
-      const response = await fetch("/api/admin/orders");
+      const response = await fetch("/api/admin/orders", {
+        method: "GET",
+        cache: "no-store",
+      });
+
       const result = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !result.success) {
         setMessage(result.message || "Không lấy được danh sách đơn hàng.");
         return;
       }
@@ -73,28 +86,39 @@ export default function OrdersTable() {
 
   const stats = useMemo(() => {
     const totalOrders = orders.length;
-    const newOrders = orders.filter((order) => order.status === "new").length;
-    const contactedOrders = orders.filter(
-      (order) => order.status === "contacted",
+
+    const pendingOrders = orders.filter(
+      (order) => order.status === "pending",
     ).length;
-    const confirmedOrders = orders.filter(
-      (order) => order.status === "confirmed",
+
+    const preparingOrders = orders.filter(
+      (order) => order.status === "preparing",
     ).length;
+
+    const shippingOrders = orders.filter(
+      (order) => order.status === "shipping",
+    ).length;
+
+    const completedOrders = orders.filter(
+      (order) => order.status === "completed",
+    ).length;
+
     const cancelledOrders = orders.filter(
       (order) => order.status === "cancelled",
     ).length;
 
-    const confirmedRevenue = orders
-      .filter((order) => order.status === "confirmed")
+    const completedRevenue = orders
+      .filter((order) => order.status === "completed")
       .reduce((sum, order) => sum + Number(order.total_price || 0), 0);
 
     return {
       totalOrders,
-      newOrders,
-      contactedOrders,
-      confirmedOrders,
+      pendingOrders,
+      preparingOrders,
+      shippingOrders,
+      completedOrders,
       cancelledOrders,
-      confirmedRevenue,
+      completedRevenue,
     };
   }, [orders]);
 
@@ -107,6 +131,7 @@ export default function OrdersTable() {
 
       const matchesKeyword = keyword
         ? [
+            order.order_code || "",
             order.name,
             order.phone,
             order.product,
@@ -200,7 +225,7 @@ export default function OrdersTable() {
 
       const result = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !result.success) {
         setMessage(result.message || "Lưu đơn hàng thất bại.");
         return;
       }
@@ -246,7 +271,7 @@ export default function OrdersTable() {
 
       const result = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !result.success) {
         setMessage(result.message || "Không thể cập nhật trạng thái.");
         return;
       }
@@ -273,7 +298,7 @@ export default function OrdersTable() {
 
       const result = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !result.success) {
         setMessage(result.message || "Không thể xóa đơn hàng.");
         return;
       }
@@ -299,34 +324,39 @@ export default function OrdersTable() {
           note="Tất cả đơn"
           tone="dark"
         />
+
         <StatCard
-          label="Đơn mới"
-          value={stats.newOrders}
-          note="Cần liên hệ"
+          label="Chờ xác nhận"
+          value={stats.pendingOrders}
+          note="Đơn mới cần xử lý"
           tone="blue"
         />
+
         <StatCard
-          label="Đã liên hệ"
-          value={stats.contactedOrders}
-          note="Đang tư vấn"
+          label="Chờ lấy hàng"
+          value={stats.preparingOrders}
+          note="Đơn đang chuẩn bị"
           tone="amber"
         />
+
         <StatCard
-          label="Đã chốt"
-          value={stats.confirmedOrders}
-          note="Đơn thành công"
+          label="Chờ giao hàng"
+          value={stats.shippingOrders}
+          note="Đơn đang giao"
+          tone="purple"
+        />
+
+        <StatCard
+          label="Đánh giá"
+          value={stats.completedOrders}
+          note="Đơn đã hoàn tất"
           tone="green"
         />
+
         <StatCard
-          label="Đã hủy"
-          value={stats.cancelledOrders}
-          note="Không mua"
-          tone="red"
-        />
-        <StatCard
-          label="Doanh thu chốt"
-          value={formatVND(stats.confirmedRevenue)}
-          note="Tính đơn đã chốt"
+          label="Doanh thu"
+          value={formatVND(stats.completedRevenue)}
+          note="Tính đơn hoàn tất"
           tone="green"
         />
       </section>
@@ -440,10 +470,11 @@ export default function OrdersTable() {
               onChange={handleChange}
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
             >
-              <option value="new">Đơn mới</option>
-              <option value="contacted">Đã liên hệ</option>
-              <option value="confirmed">Đã chốt</option>
-              <option value="cancelled">Đã hủy</option>
+              {statusEditOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -497,8 +528,8 @@ export default function OrdersTable() {
           <div>
             <h2 className="text-2xl font-black">Danh sách đơn hàng</h2>
             <p className="mt-1 text-slate-500">
-              Dạng bảng gọn để quản lý nhiều đơn nhanh hơn. Bấm “Chi tiết” để
-              xem sản phẩm trong đơn.
+              Quản lý đơn hàng theo quy trình giống Shopee: chờ xác nhận, chờ
+              lấy hàng, chờ giao hàng và đánh giá.
             </p>
           </div>
 
@@ -520,7 +551,7 @@ export default function OrdersTable() {
             <input
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
-              placeholder="Tìm theo tên, SĐT, sản phẩm, địa chỉ..."
+              placeholder="Tìm theo mã đơn, tên, SĐT, sản phẩm, địa chỉ..."
               className="rounded-2xl border border-slate-200 px-4 py-3 font-bold outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
             />
 
@@ -562,24 +593,30 @@ export default function OrdersTable() {
                     const isExpanded = expandedOrderId === order.id;
 
                     return (
-                      <>
-                        <tr
-                          key={order.id}
-                          className="border-b border-slate-100 align-top transition hover:bg-slate-50/70"
-                        >
+                      <Fragment key={order.id}>
+                        <tr className="border-b border-slate-100 align-top transition hover:bg-slate-50/70">
                           <td className="px-5 py-4">
                             <div>
                               <p className="font-black text-slate-950">
                                 {order.name}
                               </p>
+
+                              {order.order_code && (
+                                <p className="mt-1 text-xs font-black text-emerald-700">
+                                  Mã đơn: {order.order_code}
+                                </p>
+                              )}
+
                               <p className="mt-1 text-sm font-semibold text-slate-500">
                                 📞 {order.phone}
                               </p>
+
                               {order.address && (
                                 <p className="mt-1 line-clamp-1 text-sm font-semibold text-slate-500">
                                   📍 {order.address}
                                 </p>
                               )}
+
                               <span className="mt-2 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
                                 {order.customer_type === "dealer"
                                   ? "Đại lý"
@@ -628,7 +665,7 @@ export default function OrdersTable() {
                                     e.target.value as OrderStatus,
                                   )
                                 }
-                                className="w-40 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                                className="w-44 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
                               >
                                 {statusEditOptions.map((item) => (
                                   <option key={item.value} value={item.value}>
@@ -667,7 +704,7 @@ export default function OrdersTable() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -691,6 +728,12 @@ export default function OrdersTable() {
                           </h3>
                           <OrderStatusBadge status={order.status} />
                         </div>
+
+                        {order.order_code && (
+                          <p className="mt-2 text-xs font-black text-emerald-700">
+                            Mã đơn: {order.order_code}
+                          </p>
+                        )}
 
                         <p className="mt-2 text-sm font-semibold text-slate-500">
                           📞 {order.phone}
@@ -857,14 +900,14 @@ function StatCard({
   label: string;
   value: string | number;
   note: string;
-  tone: "dark" | "blue" | "amber" | "green" | "red";
+  tone: "dark" | "blue" | "amber" | "green" | "purple";
 }) {
   const toneClass = {
     dark: "bg-slate-950 text-white",
     blue: "bg-blue-50 text-blue-700",
     amber: "bg-amber-50 text-amber-700",
     green: "bg-emerald-50 text-emerald-700",
-    red: "bg-red-50 text-red-700",
+    purple: "bg-purple-50 text-purple-700",
   }[tone];
 
   return (

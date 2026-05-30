@@ -133,15 +133,17 @@ export async function recalculateCustomerStats(normalizedPhone: string) {
   const orderList = orders || [];
 
   const totalOrders = orderList.length;
-  const confirmedOrders = orderList.filter(
-    (order) => order.status === "confirmed"
+
+  const completedOrders = orderList.filter(
+    (order) => order.status === "completed"
   ).length;
+
   const cancelledOrders = orderList.filter(
     (order) => order.status === "cancelled"
   ).length;
 
   const totalSpent = orderList
-    .filter((order) => order.status === "confirmed")
+    .filter((order) => order.status === "completed")
     .reduce((sum, order) => sum + Number(order.total_price || 0), 0);
 
   const latestOrder = orderList[0];
@@ -154,7 +156,11 @@ export async function recalculateCustomerStats(normalizedPhone: string) {
       address: latestOrder?.address || customer.address,
       customer_type: latestOrder?.customer_type || customer.customer_type,
       total_orders: totalOrders,
-      confirmed_orders: confirmedOrders,
+
+      // Giữ tên cột confirmed_orders để không cần đổi database.
+      // Nhưng từ bây giờ cột này hiểu là số đơn completed / hoàn tất.
+      confirmed_orders: completedOrders,
+
       cancelled_orders: cancelledOrders,
       total_spent: totalSpent,
       last_order_at: latestOrder?.created_at || customer.last_order_at,

@@ -1,4 +1,9 @@
-export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
+export type OrderStatus =
+  | "pending"
+  | "preparing"
+  | "shipping"
+  | "completed"
+  | "cancelled";
 
 export type CustomerType = "retail" | "dealer";
 
@@ -16,6 +21,7 @@ export type OrderItem = {
 
 export type Order = {
   id: string;
+  order_code: string | null;
   name: string;
   phone: string;
   product: string;

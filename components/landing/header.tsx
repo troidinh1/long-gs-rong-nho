@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { useCart } from "./CartProvider";
-import { zaloLink } from "./data";
+
+const zaloLink = "https://zalo.me/0896456068";
 
 export default function Header() {
   const { cartCount, openCart } = useCart();
@@ -10,7 +11,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/90 backdrop-blur-2xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-8">
-        <a href="#" className="flex items-center gap-3">
+        <a href="/" className="flex items-center gap-3">
           <div className="relative h-12 w-12 overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-emerald-100">
             <Image
               src="/images/logo-long-gs.png"
@@ -33,16 +34,26 @@ export default function Header() {
         </a>
 
         <nav className="hidden items-center gap-8 text-sm font-black text-slate-700 md:flex">
-          <a href="#bang-gia" className="transition hover:text-emerald-700">
+          <a href="/#bang-gia" className="transition hover:text-emerald-700">
             Sản phẩm
           </a>
-          <a href="#loi-ich" className="transition hover:text-emerald-700">
+
+          <a href="/#loi-ich" className="transition hover:text-emerald-700">
             Lợi ích
           </a>
-          <a href="#dai-ly" className="transition hover:text-emerald-700">
+
+          <a href="/#dai-ly" className="transition hover:text-emerald-700">
             Đại lý
           </a>
-          <a href="#dat-hang" className="transition hover:text-emerald-700">
+
+          <a
+            href="/tra-cuu-don-hang"
+            className="transition hover:text-emerald-700"
+          >
+            Tra cứu đơn
+          </a>
+
+          <a href="/#dat-hang" className="transition hover:text-emerald-700">
             Đặt hàng
           </a>
         </nav>
@@ -77,7 +88,8 @@ export default function Header() {
           <span>🌿</span>
           <span>
             LONG GS - Rong nho sạch, xanh giòn, đặc sản biển Nha Trang • Nhận
-            khách lẻ, quán ăn và đại lý nhỏ • Giao hàng toàn quốc
+            khách lẻ, quán ăn và đại lý nhỏ • Giao hàng toàn quốc • Có tra cứu
+            đơn hàng online
           </span>
         </div>
       </div>

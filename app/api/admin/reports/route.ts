@@ -3,6 +3,13 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type ReportRange = "today" | "7days" | "30days" | "all";
 
+type OrderStatus =
+  | "pending"
+  | "preparing"
+  | "shipping"
+  | "completed"
+  | "cancelled";
+
 type OrderItem = {
   id: string;
   product_name: string;
@@ -17,7 +24,7 @@ type OrderWithItems = {
   name: string;
   phone: string;
   product: string;
-  status: "new" | "contacted" | "confirmed" | "cancelled";
+  status: OrderStatus;
   quantity: number;
   total_price: number;
   created_at: string;
@@ -59,10 +66,36 @@ function formatDateKey(value: string) {
   }).format(date);
 }
 
+function normalizeRange(value: string | null): ReportRange {
+  if (
+    value === "today" ||
+    value === "7days" ||
+    value === "30days" ||
+    value === "all"
+  ) {
+    return value;
+  }
+
+  return "7days";
+}
+
+function getEmptySummary() {
+  return {
+    totalRevenue: 0,
+    totalOrders: 0,
+    pendingOrders: 0,
+    preparingOrders: 0,
+    shippingOrders: 0,
+    completedOrders: 0,
+    cancelledOrders: 0,
+    averageOrderValue: 0,
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const range = (searchParams.get("range") || "7days") as ReportRange;
+    const range = normalizeRange(searchParams.get("range"));
     const startDate = getStartDate(range);
 
     let query = supabaseAdmin
@@ -101,7 +134,11 @@ export async function GET(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Không thể lấy dữ liệu báo cáo.",
+          message: error.message || "Không thể lấy dữ liệu báo cáo.",
+          summary: getEmptySummary(),
+          dailyRevenue: [],
+          topProducts: [],
+          recentOrders: [],
         },
         { status: 500 }
       );
@@ -109,27 +146,36 @@ export async function GET(request: Request) {
 
     const orders = (data || []) as OrderWithItems[];
 
-    const confirmedOrders = orders.filter(
-      (order) => order.status === "confirmed"
+    const completedOrders = orders.filter(
+      (order) => order.status === "completed"
     );
 
-    const totalRevenue = confirmedOrders.reduce(
+    const totalRevenue = completedOrders.reduce(
       (sum, order) => sum + Number(order.total_price || 0),
       0
     );
 
     const totalOrders = orders.length;
-    const newOrders = orders.filter((order) => order.status === "new").length;
-    const contactedOrders = orders.filter(
-      (order) => order.status === "contacted"
+
+    const pendingOrders = orders.filter(
+      (order) => order.status === "pending"
     ).length;
+
+    const preparingOrders = orders.filter(
+      (order) => order.status === "preparing"
+    ).length;
+
+    const shippingOrders = orders.filter(
+      (order) => order.status === "shipping"
+    ).length;
+
     const cancelledOrders = orders.filter(
       (order) => order.status === "cancelled"
     ).length;
 
     const averageOrderValue =
-      confirmedOrders.length > 0
-        ? Math.round(totalRevenue / confirmedOrders.length)
+      completedOrders.length > 0
+        ? Math.round(totalRevenue / completedOrders.length)
         : 0;
 
     const dailyMap = new Map<
@@ -137,7 +183,7 @@ export async function GET(request: Request) {
       {
         date: string;
         revenue: number;
-        confirmedOrders: number;
+        completedOrders: number;
         totalOrders: number;
       }
     >();
@@ -149,7 +195,7 @@ export async function GET(request: Request) {
         dailyMap.set(key, {
           date: key,
           revenue: 0,
-          confirmedOrders: 0,
+          completedOrders: 0,
           totalOrders: 0,
         });
       }
@@ -160,9 +206,9 @@ export async function GET(request: Request) {
 
       current.totalOrders += 1;
 
-      if (order.status === "confirmed") {
+      if (order.status === "completed") {
         current.revenue += Number(order.total_price || 0);
-        current.confirmedOrders += 1;
+        current.completedOrders += 1;
       }
     });
 
@@ -177,15 +223,15 @@ export async function GET(request: Request) {
       }
     >();
 
-    confirmedOrders.forEach((order) => {
+    completedOrders.forEach((order) => {
       const items = order.order_items || [];
 
       items.forEach((item) => {
-        const key = item.product_name;
+        const key = item.product_name || "Sản phẩm";
 
         if (!productMap.has(key)) {
           productMap.set(key, {
-            product_name: item.product_name,
+            product_name: key,
             quantity: 0,
             revenue: 0,
           });
@@ -210,9 +256,10 @@ export async function GET(request: Request) {
       summary: {
         totalRevenue,
         totalOrders,
-        newOrders,
-        contactedOrders,
-        confirmedOrders: confirmedOrders.length,
+        pendingOrders,
+        preparingOrders,
+        shippingOrders,
+        completedOrders: completedOrders.length,
         cancelledOrders,
         averageOrderValue,
       },
@@ -227,6 +274,10 @@ export async function GET(request: Request) {
       {
         success: false,
         message: "Có lỗi xảy ra khi tạo báo cáo.",
+        summary: getEmptySummary(),
+        dailyRevenue: [],
+        topProducts: [],
+        recentOrders: [],
       },
       { status: 500 }
     );

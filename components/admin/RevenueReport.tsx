@@ -6,12 +6,20 @@ import OrderStatusBadge from "./OrderStatusBadge";
 
 type ReportRange = "today" | "7days" | "30days" | "all";
 
+type OrderStatus =
+  | "pending"
+  | "preparing"
+  | "shipping"
+  | "completed"
+  | "cancelled";
+
 type ReportSummary = {
   totalRevenue: number;
   totalOrders: number;
-  newOrders: number;
-  contactedOrders: number;
-  confirmedOrders: number;
+  pendingOrders: number;
+  preparingOrders: number;
+  shippingOrders: number;
+  completedOrders: number;
   cancelledOrders: number;
   averageOrderValue: number;
 };
@@ -19,7 +27,7 @@ type ReportSummary = {
 type DailyRevenue = {
   date: string;
   revenue: number;
-  confirmedOrders: number;
+  completedOrders: number;
   totalOrders: number;
 };
 
@@ -34,7 +42,7 @@ type RecentOrder = {
   name: string;
   phone: string;
   product: string;
-  status: "new" | "contacted" | "confirmed" | "cancelled";
+  status: OrderStatus;
   quantity: number;
   total_price: number;
   created_at: string;
@@ -70,9 +78,10 @@ const emptyReport: ReportData = {
   summary: {
     totalRevenue: 0,
     totalOrders: 0,
-    newOrders: 0,
-    contactedOrders: 0,
-    confirmedOrders: 0,
+    pendingOrders: 0,
+    preparingOrders: 0,
+    shippingOrders: 0,
+    completedOrders: 0,
     cancelledOrders: 0,
     averageOrderValue: 0,
   },
@@ -92,11 +101,30 @@ export default function RevenueReport() {
       setIsLoading(true);
       setMessage("");
 
-      const response = await fetch(`/api/admin/reports?range=${selectedRange}`);
-      const result = await response.json();
+      const response = await fetch(
+        `/api/admin/reports?range=${selectedRange}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        },
+      );
 
-      if (!response.ok) {
+      const text = await response.text();
+
+      let result;
+
+      try {
+        result = text ? JSON.parse(text) : {};
+      } catch {
+        result = {
+          success: false,
+          message: "API báo cáo không trả về JSON hợp lệ.",
+        };
+      }
+
+      if (!response.ok || !result.success) {
         setMessage(result.message || "Không lấy được báo cáo.");
+        setReport(emptyReport);
         return;
       }
 
@@ -106,9 +134,11 @@ export default function RevenueReport() {
         topProducts: result.topProducts || [],
         recentOrders: result.recentOrders || [],
       });
-    } catch (error) {
-      console.error(error);
-      setMessage("Có lỗi xảy ra khi tải báo cáo.");
+    } catch {
+      setMessage(
+        "Không kết nối được API báo cáo. Hãy kiểm tra route /api/admin/reports và terminal.",
+      );
+      setReport(emptyReport);
     } finally {
       setIsLoading(false);
     }
@@ -137,8 +167,8 @@ export default function RevenueReport() {
             </h1>
 
             <p className="mt-2 max-w-2xl text-slate-500">
-              Theo dõi doanh thu đã chốt, số đơn, sản phẩm bán chạy và hiệu quả
-              bán hàng cơ bản.
+              Theo dõi doanh thu đơn hoàn tất, số đơn theo từng trạng thái, sản
+              phẩm bán chạy và hiệu quả bán hàng cơ bản.
             </p>
           </div>
 
@@ -185,9 +215,9 @@ export default function RevenueReport() {
         <>
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <ReportCard
-              label="Doanh thu đã chốt"
+              label="Doanh thu hoàn tất"
               value={formatVND(report.summary.totalRevenue)}
-              note="Chỉ tính đơn đã chốt"
+              note="Chỉ tính đơn ở bước Đánh giá"
               tone="green"
             />
             <ReportCard
@@ -197,33 +227,38 @@ export default function RevenueReport() {
               tone="dark"
             />
             <ReportCard
-              label="Đơn đã chốt"
-              value={report.summary.confirmedOrders}
-              note="Đơn thành công"
+              label="Đơn hoàn tất"
+              value={report.summary.completedOrders}
+              note="Đơn ở bước Đánh giá"
               tone="blue"
             />
             <ReportCard
               label="Giá trị TB / đơn"
               value={formatVND(report.summary.averageOrderValue)}
-              note="Trung bình đơn đã chốt"
+              note="Trung bình đơn hoàn tất"
               tone="amber"
             />
           </section>
 
-          <section className="grid gap-4 md:grid-cols-4">
+          <section className="grid gap-4 md:grid-cols-5">
             <MiniCard
-              label="Đơn mới"
-              value={report.summary.newOrders}
+              label="Chờ xác nhận"
+              value={report.summary.pendingOrders}
               color="text-blue-700 bg-blue-50"
             />
             <MiniCard
-              label="Đã liên hệ"
-              value={report.summary.contactedOrders}
+              label="Chờ lấy hàng"
+              value={report.summary.preparingOrders}
               color="text-amber-700 bg-amber-50"
             />
             <MiniCard
-              label="Đã chốt"
-              value={report.summary.confirmedOrders}
+              label="Chờ giao hàng"
+              value={report.summary.shippingOrders}
+              color="text-purple-700 bg-purple-50"
+            />
+            <MiniCard
+              label="Đánh giá"
+              value={report.summary.completedOrders}
               color="text-emerald-700 bg-emerald-50"
             />
             <MiniCard
@@ -241,7 +276,7 @@ export default function RevenueReport() {
                     Doanh thu theo ngày
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Cột cao hơn nghĩa là doanh thu đã chốt cao hơn.
+                    Chỉ tính doanh thu từ đơn đã hoàn tất ở bước Đánh giá.
                   </p>
                 </div>
               </div>
@@ -275,7 +310,7 @@ export default function RevenueReport() {
                         </div>
 
                         <p className="text-xs font-bold text-slate-400">
-                          {item.confirmedOrders} đơn đã chốt /{" "}
+                          {item.completedOrders} đơn hoàn tất /{" "}
                           {item.totalOrders} tổng đơn
                         </p>
                       </div>
@@ -291,7 +326,7 @@ export default function RevenueReport() {
               </h2>
 
               <p className="mt-1 text-sm text-slate-500">
-                Tính theo đơn đã chốt và bảng order_items.
+                Tính theo đơn đã hoàn tất và bảng order_items.
               </p>
 
               <div className="mt-6 grid gap-3">
