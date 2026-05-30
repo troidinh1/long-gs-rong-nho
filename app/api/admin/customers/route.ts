@@ -1,38 +1,32 @@
 import { NextResponse } from "next/server";
+import {
+  syncAllCustomersFromOrders,
+  syncCustomerFromOrder,
+} from "@/lib/customerSync";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-
-type OrderRow = {
-  id: string;
-  name: string;
-  phone: string;
-  product: string;
-  status: "new" | "contacted" | "confirmed" | "cancelled";
-  total_price: number;
-  quantity: number;
-  address: string | null;
-  customer_type: "retail" | "dealer";
-  created_at: string;
-};
 
 export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
-      .from("orders")
+      .from("customers")
       .select(
         `
-        id,
-        name,
-        phone,
-        product,
-        status,
-        total_price,
-        quantity,
-        address,
-        customer_type,
-        created_at
+        *,
+        orders (
+          id,
+          name,
+          phone,
+          product,
+          status,
+          total_price,
+          quantity,
+          address,
+          customer_type,
+          created_at
+        )
       `
       )
-      .order("created_at", { ascending: false });
+      .order("last_order_at", { ascending: false, nullsFirst: false });
 
     if (error) {
       console.error("Get customers error:", error);
@@ -46,73 +40,13 @@ export async function GET() {
       );
     }
 
-    const orders = (data || []) as OrderRow[];
-
-    const customerMap = new Map<
-      string,
-      {
-        phone: string;
-        name: string;
-        address: string | null;
-        customer_type: "retail" | "dealer";
-        total_orders: number;
-        confirmed_orders: number;
-        cancelled_orders: number;
-        total_spent: number;
-        last_order_at: string;
-        orders: OrderRow[];
-      }
-    >();
-
-    orders.forEach((order) => {
-      const phoneKey = normalizePhone(order.phone);
-
-      if (!phoneKey) return;
-
-      if (!customerMap.has(phoneKey)) {
-        customerMap.set(phoneKey, {
-          phone: order.phone,
-          name: order.name,
-          address: order.address,
-          customer_type: order.customer_type || "retail",
-          total_orders: 0,
-          confirmed_orders: 0,
-          cancelled_orders: 0,
-          total_spent: 0,
-          last_order_at: order.created_at,
-          orders: [],
-        });
-      }
-
-      const customer = customerMap.get(phoneKey);
-
-      if (!customer) return;
-
-      customer.orders.push(order);
-      customer.total_orders += 1;
-
-      if (order.status === "confirmed") {
-        customer.confirmed_orders += 1;
-        customer.total_spent += Number(order.total_price || 0);
-      }
-
-      if (order.status === "cancelled") {
-        customer.cancelled_orders += 1;
-      }
-
-      if (new Date(order.created_at) > new Date(customer.last_order_at)) {
-        customer.last_order_at = order.created_at;
-        customer.name = order.name;
-        customer.address = order.address;
-        customer.customer_type = order.customer_type || customer.customer_type;
-      }
-    });
-
-    const customers = Array.from(customerMap.values()).sort(
-      (a, b) =>
-        new Date(b.last_order_at).getTime() -
-        new Date(a.last_order_at).getTime()
-    );
+    const customers = (data || []).map((customer) => ({
+      ...customer,
+      orders: (customer.orders || []).sort(
+        (a: { created_at: string }, b: { created_at: string }) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      ),
+    }));
 
     return NextResponse.json({
       success: true,
@@ -131,6 +65,56 @@ export async function GET() {
   }
 }
 
-function normalizePhone(phone: string) {
-  return String(phone || "").replace(/\D/g, "");
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+
+    if (body.action === "sync-all") {
+      const result = await syncAllCustomersFromOrders();
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã đồng bộ ${result.synced} khách hàng từ đơn hàng.`,
+        synced: result.synced,
+      });
+    }
+
+    const name = String(body.name || "").trim();
+    const phone = String(body.phone || "").trim();
+    const address = String(body.address || "").trim();
+    const customer_type = String(body.customer_type || "retail").trim();
+
+    if (!name || !phone) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vui lòng nhập tên và số điện thoại.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const customer = await syncCustomerFromOrder({
+      name,
+      phone,
+      address,
+      customer_type,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Đồng bộ khách hàng thành công.",
+      customer,
+    });
+  } catch (error) {
+    console.error("Customers POST API error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Có lỗi xảy ra khi đồng bộ khách hàng.",
+      },
+      { status: 500 }
+    );
+  }
 }

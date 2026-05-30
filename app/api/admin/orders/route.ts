@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizePhone, syncCustomerFromOrder } from "@/lib/customerSync";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function GET() {
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
     const address = String(body.address || "").trim();
     const customer_type = String(body.customer_type || "retail").trim();
     const total_price = Number(body.total_price || 0);
+    const normalized_phone = normalizePhone(phone);
 
     if (!name || !phone || !product) {
       return NextResponse.json(
@@ -84,7 +86,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data, error } = await supabaseAdmin
+    const customer = await syncCustomerFromOrder({
+      name,
+      phone,
+      address,
+      customer_type,
+    });
+
+    const { data: order, error } = await supabaseAdmin
       .from("orders")
       .insert({
         name,
@@ -96,6 +105,8 @@ export async function POST(request: Request) {
         address,
         customer_type,
         total_price,
+        customer_id: customer?.id || null,
+        normalized_phone,
       })
       .select()
       .single();
@@ -112,10 +123,17 @@ export async function POST(request: Request) {
       );
     }
 
+    await syncCustomerFromOrder({
+      name,
+      phone,
+      address,
+      customer_type,
+    });
+
     return NextResponse.json({
       success: true,
       message: "Tạo đơn hàng thành công.",
-      order: data,
+      order,
     });
   } catch (error) {
     console.error("Admin orders POST error:", error);

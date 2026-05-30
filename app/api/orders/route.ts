@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendOrderEmail } from "@/lib/sendOrderEmail";
+import { normalizePhone, syncCustomerFromOrder } from "@/lib/customerSync";
 
 type OrderItemInput = {
   product_id?: string | null;
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
     const customer_type = String(body.customer_type || "retail").trim();
     const total_price = Number(body.total_price || 0);
     const items: OrderItemInput[] = Array.isArray(body.items) ? body.items : [];
+    const normalized_phone = normalizePhone(phone);
 
     if (!name || !phone) {
       return NextResponse.json(
@@ -54,6 +56,13 @@ export async function POST(request: Request) {
       );
     }
 
+    const customer = await syncCustomerFromOrder({
+      name,
+      phone,
+      address,
+      customer_type,
+    });
+
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .insert({
@@ -66,6 +75,8 @@ export async function POST(request: Request) {
         address,
         customer_type,
         total_price,
+        customer_id: customer?.id || null,
+        normalized_phone,
       })
       .select()
       .single();
@@ -117,6 +128,13 @@ export async function POST(request: Request) {
         );
       }
     }
+
+    await syncCustomerFromOrder({
+      name,
+      phone,
+      address,
+      customer_type,
+    });
 
     try {
       await sendOrderEmail({

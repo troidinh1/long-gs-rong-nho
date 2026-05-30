@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { formatDateTime, formatVND } from "@/lib/format";
 import { Customer } from "@/types/customer";
 import OrderStatusBadge from "./OrderStatusBadge";
@@ -42,6 +42,38 @@ export default function CustomersTable() {
     }
   }
 
+  async function syncCustomers() {
+    try {
+      setIsLoading(true);
+      setMessage("");
+
+      const response = await fetch("/api/admin/customers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "sync-all",
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        setMessage(result.message || "Không thể đồng bộ khách hàng.");
+        return;
+      }
+
+      setMessage(result.message || "Đồng bộ khách hàng thành công.");
+      await fetchCustomers();
+    } catch (error) {
+      console.error(error);
+      setMessage("Có lỗi khi đồng bộ khách hàng.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   useEffect(() => {
     fetchCustomers();
   }, []);
@@ -75,6 +107,8 @@ export default function CustomersTable() {
     const keyword = searchKeyword.trim().toLowerCase();
 
     return customers.filter((customer) => {
+      const orders = customer.orders || [];
+
       const matchesType =
         customerTypeFilter === "all"
           ? true
@@ -84,9 +118,10 @@ export default function CustomersTable() {
         ? [
             customer.name,
             customer.phone,
+            customer.normalized_phone,
             customer.address || "",
             customer.customer_type,
-            ...customer.orders.map((order) => order.product),
+            ...orders.map((order) => order.product),
           ]
             .join(" ")
             .toLowerCase()
@@ -115,18 +150,29 @@ export default function CustomersTable() {
             </h1>
 
             <p className="mt-2 max-w-2xl text-slate-500">
-              Danh sách khách được gom tự động theo số điện thoại từ đơn hàng.
-              Có thể xem lịch sử mua hàng, tổng số đơn và tổng tiền đã chốt.
+              Khách hàng được lưu vào bảng customers thật. Khi có đơn mới hoặc
+              đổi trạng thái đơn, hệ thống sẽ tự đồng bộ tổng đơn, tổng tiền và
+              lần mua gần nhất.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={fetchCustomers}
-            className="cursor-pointer rounded-2xl bg-slate-950 px-6 py-3 font-black text-white transition hover:bg-emerald-700"
-          >
-            Tải lại
-          </button>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={syncCustomers}
+              className="cursor-pointer rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-3 font-black text-emerald-700 transition hover:bg-emerald-100"
+            >
+              Đồng bộ khách cũ
+            </button>
+
+            <button
+              type="button"
+              onClick={fetchCustomers}
+              className="cursor-pointer rounded-2xl bg-slate-950 px-6 py-3 font-black text-white transition hover:bg-emerald-700"
+            >
+              Tải lại
+            </button>
+          </div>
         </div>
       </section>
 
@@ -164,7 +210,7 @@ export default function CustomersTable() {
       </section>
 
       {message && (
-        <div className="rounded-2xl bg-red-50 p-4 font-bold text-red-700">
+        <div className="rounded-2xl bg-emerald-50 p-4 font-bold text-emerald-700">
           {message}
         </div>
       )}
@@ -174,7 +220,8 @@ export default function CustomersTable() {
           <div>
             <h2 className="text-2xl font-black">Danh sách khách hàng</h2>
             <p className="mt-1 text-slate-500">
-              Khách mua gần nhất sẽ hiển thị lên đầu.
+              Khách mua gần nhất sẽ hiển thị lên đầu. Bấm “Xem lịch sử” để xem
+              các đơn đã mua.
             </p>
           </div>
 
@@ -231,11 +278,8 @@ export default function CustomersTable() {
                     const isExpanded = expandedPhone === customer.phone;
 
                     return (
-                      <>
-                        <tr
-                          key={customer.phone}
-                          className="border-b border-slate-100 align-top transition hover:bg-slate-50/70"
-                        >
+                      <Fragment key={customer.id || customer.phone}>
+                        <tr className="border-b border-slate-100 align-top transition hover:bg-slate-50/70">
                           <td className="px-5 py-4">
                             <p className="font-black text-slate-950">
                               {customer.name}
@@ -269,7 +313,9 @@ export default function CustomersTable() {
                           </td>
 
                           <td className="px-5 py-4 text-sm font-bold text-slate-600">
-                            {formatDateTime(customer.last_order_at)}
+                            {formatDateTime(
+                              customer.last_order_at || customer.created_at,
+                            )}
                           </td>
 
                           <td className="px-5 py-4 text-right">
@@ -290,7 +336,7 @@ export default function CustomersTable() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -303,7 +349,7 @@ export default function CustomersTable() {
 
                 return (
                   <article
-                    key={customer.phone}
+                    key={customer.id || customer.phone}
                     className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm"
                   >
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -329,7 +375,9 @@ export default function CustomersTable() {
 
                         <p className="mt-1 text-sm font-semibold text-slate-500">
                           🕒 Mua gần nhất:{" "}
-                          {formatDateTime(customer.last_order_at)}
+                          {formatDateTime(
+                            customer.last_order_at || customer.created_at,
+                          )}
                         </p>
                       </div>
 
@@ -379,6 +427,8 @@ export default function CustomersTable() {
 }
 
 function CustomerOrderHistory({ customer }: { customer: Customer }) {
+  const orders = customer.orders || [];
+
   return (
     <div className="rounded-2xl bg-white p-4">
       <div className="mb-4">
@@ -386,46 +436,52 @@ function CustomerOrderHistory({ customer }: { customer: Customer }) {
           Lịch sử mua hàng
         </p>
         <p className="mt-1 text-sm font-semibold text-slate-500">
-          {customer.total_orders} đơn hàng của {customer.name}
+          {orders.length} đơn hàng của {customer.name}
         </p>
       </div>
 
-      <div className="grid gap-3">
-        {customer.orders.map((order) => (
-          <div
-            key={order.id}
-            className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 md:grid-cols-[1fr_160px_140px]"
-          >
-            <div>
-              <p className="font-black text-slate-950">{order.product}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-500">
-                {formatDateTime(order.created_at)}
-              </p>
-              {order.address && (
+      {orders.length === 0 ? (
+        <div className="rounded-2xl bg-slate-50 p-6 text-center font-bold text-slate-500">
+          Khách này chưa có đơn hàng được liên kết.
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {orders.map((order) => (
+            <div
+              key={order.id}
+              className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 md:grid-cols-[1fr_160px_140px]"
+            >
+              <div>
+                <p className="font-black text-slate-950">{order.product}</p>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  📍 {order.address}
+                  {formatDateTime(order.created_at)}
                 </p>
-              )}
-            </div>
+                {order.address && (
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    📍 {order.address}
+                  </p>
+                )}
+              </div>
 
-            <div>
-              <OrderStatusBadge status={order.status} />
-              <p className="mt-2 text-sm font-bold text-slate-500">
-                SL: {order.quantity || 1}
-              </p>
-            </div>
+              <div>
+                <OrderStatusBadge status={order.status} />
+                <p className="mt-2 text-sm font-bold text-slate-500">
+                  SL: {order.quantity || 1}
+                </p>
+              </div>
 
-            <div className="text-left md:text-right">
-              <p className="text-xs font-black uppercase text-slate-400">
-                Tổng tiền
-              </p>
-              <p className="mt-1 font-black text-emerald-700">
-                {formatVND(order.total_price || 0)}
-              </p>
+              <div className="text-left md:text-right">
+                <p className="text-xs font-black uppercase text-slate-400">
+                  Tổng tiền
+                </p>
+                <p className="mt-1 font-black text-emerald-700">
+                  {formatVND(order.total_price || 0)}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
