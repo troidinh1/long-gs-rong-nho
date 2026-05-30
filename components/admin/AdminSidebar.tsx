@@ -23,7 +23,6 @@ const navItems = [
     href: "/admin/customers",
     label: "Khách hàng",
     icon: "👥",
-    disabled: true,
   },
   {
     href: "/admin/reports",
