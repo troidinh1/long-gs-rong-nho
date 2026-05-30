@@ -1,15 +1,69 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { formatVND } from "@/lib/money";
+import { Product } from "@/types/product";
 import { zaloLink } from "./data";
 
+type CustomerType = "retail" | "dealer";
+
 export default function OrderForm() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [quantity, setQuantity] = useState(1);
+  const [customerType, setCustomerType] = useState<CustomerType>("retail");
+
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderMessage, setOrderMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
 
+  async function fetchProducts() {
+    try {
+      setIsLoadingProducts(true);
+
+      const response = await fetch("/api/products");
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error(result.message || "Không thể lấy sản phẩm.");
+        return;
+      }
+
+      const activeProducts: Product[] = result.products || [];
+      setProducts(activeProducts);
+
+      if (activeProducts.length > 0) {
+        setSelectedProductId(activeProducts[0].id);
+      }
+    } catch (error) {
+      console.error("Fetch order products error:", error);
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const selectedProduct = useMemo(() => {
+    return products.find((product) => product.id === selectedProductId);
+  }, [products, selectedProductId]);
+
+  const totalPrice = useMemo(() => {
+    if (!selectedProduct) return 0;
+    return selectedProduct.price * quantity;
+  }, [selectedProduct, quantity]);
+
   async function handleOrder(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    if (!selectedProduct) {
+      setIsSuccess(false);
+      setOrderMessage("Vui lòng chọn sản phẩm trước khi đặt hàng.");
+      return;
+    }
 
     setIsSubmitting(true);
     setOrderMessage("");
@@ -21,7 +75,11 @@ export default function OrderForm() {
     const orderData = {
       name: String(formData.get("name") || "").trim(),
       phone: String(formData.get("phone") || "").trim(),
-      product: String(formData.get("product") || "").trim(),
+      product: `${selectedProduct.name} - ${formatVND(selectedProduct.price)}`,
+      quantity,
+      address: String(formData.get("address") || "").trim(),
+      customer_type: customerType,
+      total_price: totalPrice,
       note: String(formData.get("note") || "").trim(),
     };
 
@@ -58,6 +116,12 @@ export default function OrderForm() {
       setIsSuccess(true);
       setOrderMessage("Đặt hàng thành công! Đang chuyển sang trang cảm ơn...");
       form.reset();
+      setQuantity(1);
+      setCustomerType("retail");
+
+      if (products.length > 0) {
+        setSelectedProductId(products[0].id);
+      }
 
       setTimeout(() => {
         window.location.href = "/thank-you";
@@ -84,9 +148,9 @@ export default function OrderForm() {
           </h2>
 
           <p className="mt-6 text-lg leading-9 text-slate-600">
-            Khi khách gửi form, thông tin sẽ được lưu vào hệ thống đơn hàng.
-            LONG GS sẽ liên hệ lại để tư vấn, xác nhận sản phẩm và hỗ trợ giao
-            hàng.
+            Chọn sản phẩm, số lượng và để lại thông tin. Hệ thống sẽ ghi nhận
+            đơn hàng, gửi thông báo về email và LONG GS sẽ liên hệ lại để xác
+            nhận.
           </p>
 
           <div className="mt-8 rounded-[2rem] bg-emerald-50 p-7">
@@ -116,6 +180,32 @@ export default function OrderForm() {
 
               <p>
                 <strong>Địa chỉ:</strong> Trần Phú, Nha Trang, Khánh Hòa
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-[2rem] border border-emerald-100 bg-white p-6 shadow-sm">
+            <h3 className="text-xl font-black text-[#071027]">
+              Tóm tắt đơn hàng
+            </h3>
+
+            <div className="mt-4 space-y-3 text-slate-600">
+              <p>
+                <strong>Sản phẩm:</strong>{" "}
+                {selectedProduct ? selectedProduct.name : "Chưa chọn"}
+              </p>
+
+              <p>
+                <strong>Số lượng:</strong> {quantity}
+              </p>
+
+              <p>
+                <strong>Loại khách:</strong>{" "}
+                {customerType === "dealer" ? "Đại lý / nhập sỉ" : "Khách lẻ"}
+              </p>
+
+              <p className="text-xl font-black text-emerald-700">
+                Tạm tính: {formatVND(totalPrice)}
               </p>
             </div>
           </div>
@@ -152,17 +242,81 @@ export default function OrderForm() {
 
             <div>
               <label className="mb-2 block font-black text-[#071027]">
-                Sản phẩm quan tâm
+                Loại khách
               </label>
               <select
-                name="product"
+                value={customerType}
+                onChange={(e) => setCustomerType(e.target.value as CustomerType)}
                 className="w-full rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
               >
-                <option>Rong nho 250g - 80.000đ</option>
-                <option>Rong nho 500g - 150.000đ</option>
-                <option>Rong nho 1kg - 300.000đ</option>
-                <option>Tôi muốn nhập đại lý nhỏ</option>
+                <option value="retail">Khách lẻ / mua dùng</option>
+                <option value="dealer">Đại lý / nhập bán</option>
               </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block font-black text-[#071027]">
+                Sản phẩm quan tâm
+              </label>
+
+              <select
+                value={selectedProductId}
+                onChange={(e) => setSelectedProductId(e.target.value)}
+                disabled={isLoadingProducts || products.length === 0}
+                className="w-full rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+              >
+                {isLoadingProducts ? (
+                  <option>Đang tải sản phẩm...</option>
+                ) : products.length === 0 ? (
+                  <option>Chưa có sản phẩm</option>
+                ) : (
+                  products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} - {formatVND(product.price)}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block font-black text-[#071027]">
+                Số lượng
+              </label>
+
+              <input
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e) =>
+                  setQuantity(Math.max(1, Number(e.target.value || 1)))
+                }
+                className="w-full rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block font-black text-[#071027]">
+                Địa chỉ giao hàng
+              </label>
+
+              <input
+                name="address"
+                placeholder="Ví dụ: Trần Phú, Nha Trang, Khánh Hòa"
+                className="w-full rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+              />
+            </div>
+
+            <div className="rounded-2xl bg-emerald-50 p-5">
+              <p className="text-sm font-bold text-slate-500">
+                Tổng tiền tạm tính
+              </p>
+              <p className="mt-1 text-3xl font-black text-emerald-700">
+                {formatVND(totalPrice)}
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Giá cuối cùng sẽ được LONG GS xác nhận lại khi tư vấn.
+              </p>
             </div>
 
             <div>
@@ -172,14 +326,14 @@ export default function OrderForm() {
               <textarea
                 name="note"
                 rows={4}
-                placeholder="Ví dụ: Tôi muốn mua 2 gói 500g..."
+                placeholder="Ví dụ: Tôi muốn giao buổi chiều..."
                 className="w-full resize-none rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
               />
             </div>
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !selectedProduct}
               className="rounded-2xl bg-emerald-700 px-8 py-4 text-base font-black text-white shadow-xl shadow-emerald-900/20 transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? "Đang gửi đơn..." : "Gửi đơn đặt hàng"}

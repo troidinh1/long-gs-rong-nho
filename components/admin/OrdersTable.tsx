@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { formatVND } from "@/lib/money";
 import { Order, OrderFormData, OrderStatus } from "@/types/order";
 import OrderStatusBadge from "./OrderStatusBadge";
 
@@ -10,6 +11,10 @@ const emptyForm: OrderFormData = {
   product: "Rong nho 500g - 150.000đ",
   note: "",
   status: "new",
+  quantity: "1",
+  address: "",
+  customer_type: "retail",
+  total_price: "0",
 };
 
 const statusOptions: { value: OrderStatus | "all"; label: string }[] = [
@@ -29,6 +34,11 @@ function formatDateTime(date: string) {
 
 function normalizeText(text: string) {
   return text.toLowerCase().trim();
+}
+
+function customerTypeText(type: string) {
+  if (type === "dealer") return "Đại lý";
+  return "Khách lẻ";
 }
 
 export default function OrdersTable() {
@@ -82,12 +92,17 @@ export default function OrdersTable() {
       (order) => order.status === "cancelled"
     ).length;
 
+    const totalRevenue = orders
+      .filter((order) => order.status === "confirmed")
+      .reduce((sum, order) => sum + Number(order.total_price || 0), 0);
+
     return {
       total,
       newOrders,
       contacted,
       confirmed,
       cancelled,
+      totalRevenue,
     };
   }, [orders]);
 
@@ -99,7 +114,9 @@ export default function OrdersTable() {
         statusFilter === "all" ? true : order.status === statusFilter;
 
       const searchSource = normalizeText(
-        `${order.name} ${order.phone} ${order.product} ${order.note || ""}`
+        `${order.name} ${order.phone} ${order.product} ${order.note || ""} ${
+          order.address || ""
+        } ${order.customer_type || ""}`
       );
 
       const matchSearch = keyword ? searchSource.includes(keyword) : true;
@@ -133,6 +150,10 @@ export default function OrdersTable() {
       product: order.product,
       note: order.note || "",
       status: order.status,
+      quantity: String(order.quantity || 1),
+      address: order.address || "",
+      customer_type: order.customer_type || "retail",
+      total_price: String(order.total_price || 0),
     });
     setMessage("");
 
@@ -207,6 +228,10 @@ export default function OrdersTable() {
           product: order.product,
           note: order.note || "",
           status,
+          quantity: order.quantity || 1,
+          address: order.address || "",
+          customer_type: order.customer_type || "retail",
+          total_price: order.total_price || 0,
         }),
       });
 
@@ -254,9 +279,8 @@ export default function OrdersTable() {
 
   return (
     <div className="grid gap-8">
-      {/* STATS */}
-      <section className="grid gap-4 md:grid-cols-5">
-        <StatCard title="Tổng đơn" value={stats.total} desc="Tất cả đơn hàng" />
+      <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <StatCard title="Tổng đơn" value={stats.total} desc="Tất cả đơn" />
         <StatCard
           title="Đơn mới"
           value={stats.newOrders}
@@ -281,9 +305,14 @@ export default function OrdersTable() {
           desc="Không mua"
           tone="red"
         />
+        <StatCard
+          title="Doanh thu chốt"
+          value={formatVND(stats.totalRevenue)}
+          desc="Tính đơn đã chốt"
+          tone="emerald"
+        />
       </section>
 
-      {/* CREATE / UPDATE FORM */}
       <section className="rounded-3xl bg-white p-6 shadow-sm">
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -296,7 +325,7 @@ export default function OrdersTable() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Dùng phần này khi có khách đặt qua điện thoại, Facebook hoặc Zalo.
+              Dùng khi có khách đặt qua điện thoại, Facebook hoặc Zalo.
             </p>
           </div>
 
@@ -338,17 +367,52 @@ export default function OrdersTable() {
 
           <div>
             <label className="mb-2 block font-bold">Sản phẩm</label>
-            <select
+            <input
               name="product"
               value={formData.product}
               onChange={handleChange}
+              required
+              placeholder="Ví dụ: Rong nho LONG GS 500g - 150.000đ"
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block font-bold">Số lượng</label>
+            <input
+              name="quantity"
+              type="number"
+              min={1}
+              value={formData.quantity}
+              onChange={handleChange}
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block font-bold">Loại khách</label>
+            <select
+              name="customer_type"
+              value={formData.customer_type}
+              onChange={handleChange}
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
             >
-              <option>Rong nho 250g - 80.000đ</option>
-              <option>Rong nho 500g - 150.000đ</option>
-              <option>Rong nho 1kg - 300.000đ</option>
-              <option>Tôi muốn nhập đại lý nhỏ</option>
+              <option value="retail">Khách lẻ</option>
+              <option value="dealer">Đại lý</option>
             </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block font-bold">Tổng tiền</label>
+            <input
+              name="total_price"
+              type="number"
+              min={0}
+              value={formData.total_price}
+              onChange={handleChange}
+              placeholder="Ví dụ: 300000"
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+            />
           </div>
 
           <div>
@@ -364,6 +428,17 @@ export default function OrdersTable() {
               <option value="confirmed">Đã chốt</option>
               <option value="cancelled">Đã hủy</option>
             </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block font-bold">Địa chỉ</label>
+            <input
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              placeholder="Ví dụ: Trần Phú, Nha Trang"
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+            />
           </div>
 
           <div className="md:col-span-2">
@@ -400,7 +475,6 @@ export default function OrdersTable() {
         </div>
       )}
 
-      {/* FILTERS */}
       <section className="rounded-3xl bg-white p-6 shadow-sm">
         <div className="mb-5 flex flex-col gap-2">
           <p className="text-sm font-black uppercase tracking-[0.2em] text-emerald-700">
@@ -413,7 +487,7 @@ export default function OrdersTable() {
           <input
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            placeholder="Tìm theo tên, số điện thoại, sản phẩm, ghi chú..."
+            placeholder="Tìm theo tên, số điện thoại, sản phẩm, địa chỉ..."
             className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
           />
 
@@ -447,7 +521,6 @@ export default function OrdersTable() {
         </p>
       </section>
 
-      {/* ORDERS TABLE */}
       <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-6 md:flex-row md:items-center md:justify-between">
           <div>
@@ -476,14 +549,18 @@ export default function OrdersTable() {
           </div>
         ) : (
           <>
-            <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[1100px] border-collapse text-left">
+            <div className="hidden overflow-x-auto xl:block">
+              <table className="w-full min-w-[1300px] border-collapse text-left">
                 <thead className="bg-emerald-700 text-white">
                   <tr>
                     <th className="p-4">Thời gian</th>
                     <th className="p-4">Khách hàng</th>
                     <th className="p-4">SĐT</th>
+                    <th className="p-4">Loại</th>
                     <th className="p-4">Sản phẩm</th>
+                    <th className="p-4">SL</th>
+                    <th className="p-4">Tổng tiền</th>
+                    <th className="p-4">Địa chỉ</th>
                     <th className="p-4">Ghi chú</th>
                     <th className="p-4">Trạng thái</th>
                     <th className="p-4">Đổi nhanh</th>
@@ -509,9 +586,27 @@ export default function OrdersTable() {
                         </a>
                       </td>
 
-                      <td className="p-4 font-semibold">{order.product}</td>
+                      <td className="p-4">
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                          {customerTypeText(order.customer_type)}
+                        </span>
+                      </td>
+
+                      <td className="max-w-[220px] p-4 font-semibold">
+                        {order.product}
+                      </td>
+
+                      <td className="p-4 font-black">{order.quantity}</td>
+
+                      <td className="p-4 font-black text-emerald-700">
+                        {formatVND(order.total_price || 0)}
+                      </td>
 
                       <td className="max-w-[220px] p-4 text-slate-600">
+                        {order.address || "Chưa có"}
+                      </td>
+
+                      <td className="max-w-[180px] p-4 text-slate-600">
                         {order.note || "Không có"}
                       </td>
 
@@ -559,7 +654,7 @@ export default function OrdersTable() {
               </table>
             </div>
 
-            <div className="grid gap-4 p-4 lg:hidden">
+            <div className="grid gap-4 p-4 xl:hidden">
               {filteredOrders.map((order) => (
                 <div
                   key={order.id}
@@ -586,9 +681,31 @@ export default function OrdersTable() {
                         {order.phone}
                       </a>
                     </p>
+
+                    <p>
+                      <strong>Loại khách:</strong>{" "}
+                      {customerTypeText(order.customer_type)}
+                    </p>
+
                     <p>
                       <strong>Sản phẩm:</strong> {order.product}
                     </p>
+
+                    <p>
+                      <strong>Số lượng:</strong> {order.quantity}
+                    </p>
+
+                    <p>
+                      <strong>Tổng tiền:</strong>{" "}
+                      <span className="font-black text-emerald-700">
+                        {formatVND(order.total_price || 0)}
+                      </span>
+                    </p>
+
+                    <p>
+                      <strong>Địa chỉ:</strong> {order.address || "Chưa có"}
+                    </p>
+
                     <p>
                       <strong>Ghi chú:</strong> {order.note || "Không có"}
                     </p>
@@ -643,7 +760,7 @@ function StatCard({
   tone = "slate",
 }: {
   title: string;
-  value: number;
+  value: number | string;
   desc: string;
   tone?: "slate" | "blue" | "amber" | "emerald" | "red";
 }) {
@@ -660,7 +777,7 @@ function StatCard({
       <p className="text-sm font-bold text-slate-500">{title}</p>
 
       <div
-        className={`mt-4 inline-flex min-w-16 items-center justify-center rounded-2xl px-4 py-2 text-3xl font-black ${toneClass}`}
+        className={`mt-4 inline-flex min-w-16 items-center justify-center rounded-2xl px-4 py-2 text-2xl font-black ${toneClass}`}
       >
         {value}
       </div>

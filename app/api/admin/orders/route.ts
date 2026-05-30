@@ -47,6 +47,11 @@ export async function POST(request: Request) {
     const note = String(body.note || "").trim();
     const status = String(body.status || "new").trim();
 
+    const quantity = Math.max(1, Number(body.quantity || 1));
+    const address = String(body.address || "").trim();
+    const customer_type = String(body.customer_type || "retail").trim();
+    const total_price = Math.max(0, Number(body.total_price || 0));
+
     if (!name || !phone || !product) {
       return NextResponse.json(
         {
@@ -65,6 +70,10 @@ export async function POST(request: Request) {
         product,
         note,
         status,
+        quantity,
+        address,
+        customer_type,
+        total_price,
       })
       .select()
       .single();

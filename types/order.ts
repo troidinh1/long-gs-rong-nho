@@ -1,5 +1,7 @@
 export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
 
+export type CustomerType = "retail" | "dealer";
+
 export type Order = {
   id: string;
   name: string;
@@ -8,6 +10,11 @@ export type Order = {
   note: string | null;
   status: OrderStatus;
   created_at: string;
+
+  quantity: number;
+  address: string | null;
+  customer_type: CustomerType;
+  total_price: number;
 };
 
 export type OrderFormData = {
@@ -16,4 +23,9 @@ export type OrderFormData = {
   product: string;
   note: string;
   status?: OrderStatus;
+
+  quantity?: string;
+  address?: string;
+  customer_type?: CustomerType;
+  total_price?: string;
 };

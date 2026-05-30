@@ -18,6 +18,11 @@ export async function PATCH(request: Request, context: RouteContext) {
       product: String(body.product || "").trim(),
       note: String(body.note || "").trim(),
       status: String(body.status || "new").trim(),
+
+      quantity: Math.max(1, Number(body.quantity || 1)),
+      address: String(body.address || "").trim(),
+      customer_type: String(body.customer_type || "retail").trim(),
+      total_price: Math.max(0, Number(body.total_price || 0)),
     };
 
     if (!id) {
