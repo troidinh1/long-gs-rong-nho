@@ -73,6 +73,13 @@ export default function CategoriesTable() {
         };
       }
 
+      if (name === "slug") {
+        return {
+          ...prev,
+          slug: createSlug(value),
+        };
+      }
+
       return {
         ...prev,
         [name]: value,
@@ -208,14 +215,24 @@ export default function CategoriesTable() {
         method: "DELETE",
       });
 
-      const result = await response.json();
+      const text = await response.text();
+
+      let result;
+
+      try {
+        result = text ? JSON.parse(text) : {};
+      } catch {
+        result = {
+          message: "API xóa danh mục không trả về JSON hợp lệ.",
+        };
+      }
 
       if (!response.ok) {
         setMessage(result.message || "Không thể xóa danh mục.");
         return;
       }
 
-      setMessage("Xóa danh mục thành công.");
+      setMessage(result.message || "Xóa danh mục thành công.");
       await fetchCategories();
     } catch (error) {
       console.error(error);
@@ -246,7 +263,7 @@ export default function CategoriesTable() {
             <button
               type="button"
               onClick={startCreate}
-              className="rounded-xl border border-slate-200 px-4 py-2 font-bold text-slate-600 transition hover:bg-slate-50"
+              className="cursor-pointer rounded-xl border border-slate-200 px-4 py-2 font-bold text-slate-600 transition hover:bg-slate-50"
             >
               Hủy sửa
             </button>
@@ -316,7 +333,7 @@ export default function CategoriesTable() {
             <button
               type="submit"
               disabled={isSaving}
-              className="rounded-2xl bg-emerald-700 px-6 py-3 font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="cursor-pointer rounded-2xl bg-emerald-700 px-6 py-3 font-black text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving
                 ? "Đang lưu..."
@@ -346,93 +363,155 @@ export default function CategoriesTable() {
           <button
             type="button"
             onClick={fetchCategories}
-            className="rounded-2xl border border-slate-200 px-5 py-3 font-black text-slate-700 transition hover:bg-slate-50"
+            className="cursor-pointer rounded-2xl border border-slate-200 px-5 py-3 font-black text-slate-700 transition hover:bg-slate-50"
           >
             Tải lại
           </button>
         </div>
 
         {isLoading ? (
-          <div className="p-8 text-center font-bold">
-            Đang tải danh mục...
-          </div>
+          <div className="p-8 text-center font-bold">Đang tải danh mục...</div>
         ) : categories.length === 0 ? (
           <div className="p-8 text-center font-bold">Chưa có danh mục nào.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-left">
-              <thead className="bg-emerald-700 text-white">
-                <tr>
-                  <th className="p-4">Thứ tự</th>
-                  <th className="p-4">Tên danh mục</th>
-                  <th className="p-4">Slug</th>
-                  <th className="p-4">Mô tả</th>
-                  <th className="p-4">Hiển thị</th>
-                  <th className="p-4">Thao tác</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {categories.map((category) => (
-                  <tr key={category.id} className="border-b border-slate-100">
-                    <td className="p-4 font-bold">{category.sort_order}</td>
-
-                    <td className="p-4 font-black">{category.name}</td>
-
-                    <td className="p-4">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-                        {category.slug}
-                      </span>
-                    </td>
-
-                    <td className="max-w-[360px] p-4 text-slate-600">
-                      {category.description || "Không có mô tả"}
-                    </td>
-
-                    <td className="p-4">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-black ${
-                          category.is_active
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-                        {category.is_active ? "Đang hiện" : "Đang ẩn"}
-                      </span>
-                    </td>
-
-                    <td className="p-4">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(category)}
-                          className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-200"
-                        >
-                          Sửa
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => toggleCategory(category)}
-                          className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-black text-amber-700 transition hover:bg-amber-100"
-                        >
-                          {category.is_active ? "Ẩn" : "Hiện"}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => deleteCategory(category.id)}
-                          className="rounded-xl bg-red-50 px-3 py-2 text-sm font-black text-red-700 transition hover:bg-red-100"
-                        >
-                          Xóa
-                        </button>
-                      </div>
-                    </td>
+          <>
+            <div className="hidden overflow-x-auto lg:block">
+              <table className="w-full min-w-[900px] border-collapse text-left">
+                <thead className="bg-emerald-700 text-white">
+                  <tr>
+                    <th className="p-4">Thứ tự</th>
+                    <th className="p-4">Tên danh mục</th>
+                    <th className="p-4">Slug</th>
+                    <th className="p-4">Mô tả</th>
+                    <th className="p-4">Hiển thị</th>
+                    <th className="p-4">Thao tác</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+
+                <tbody>
+                  {categories.map((category) => (
+                    <tr key={category.id} className="border-b border-slate-100">
+                      <td className="p-4 font-bold">{category.sort_order}</td>
+
+                      <td className="p-4 font-black">{category.name}</td>
+
+                      <td className="p-4">
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                          {category.slug}
+                        </span>
+                      </td>
+
+                      <td className="max-w-[360px] p-4 text-slate-600">
+                        {category.description || "Không có mô tả"}
+                      </td>
+
+                      <td className="p-4">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-black ${
+                            category.is_active
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {category.is_active ? "Đang hiện" : "Đang ẩn"}
+                        </span>
+                      </td>
+
+                      <td className="p-4">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(category)}
+                            className="cursor-pointer rounded-xl bg-slate-100 px-3 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-200"
+                          >
+                            Sửa
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => toggleCategory(category)}
+                            className="cursor-pointer rounded-xl bg-amber-50 px-3 py-2 text-sm font-black text-amber-700 transition hover:bg-amber-100"
+                          >
+                            {category.is_active ? "Ẩn" : "Hiện"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => deleteCategory(category.id)}
+                            className="cursor-pointer rounded-xl bg-red-50 px-3 py-2 text-sm font-black text-red-700 transition hover:bg-red-100"
+                          >
+                            Xóa
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="grid gap-4 p-4 lg:hidden">
+              {categories.map((category) => (
+                <div
+                  key={category.id}
+                  className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black">{category.name}</p>
+                      <p className="mt-1 text-sm font-bold text-slate-500">
+                        /{category.slug}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-black ${
+                        category.is_active
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {category.is_active ? "Đang hiện" : "Đang ẩn"}
+                    </span>
+                  </div>
+
+                  <p className="mt-3 text-sm text-slate-500">
+                    {category.description || "Không có mô tả"}
+                  </p>
+
+                  <p className="mt-3 text-sm font-bold text-slate-500">
+                    Thứ tự: {category.sort_order}
+                  </p>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(category)}
+                      className="cursor-pointer rounded-xl bg-slate-100 px-3 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-200"
+                    >
+                      Sửa
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleCategory(category)}
+                      className="cursor-pointer rounded-xl bg-amber-50 px-3 py-2 text-sm font-black text-amber-700 transition hover:bg-amber-100"
+                    >
+                      {category.is_active ? "Ẩn" : "Hiện"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => deleteCategory(category.id)}
+                      className="cursor-pointer rounded-xl bg-red-50 px-3 py-2 text-sm font-black text-red-700 transition hover:bg-red-100"
+                    >
+                      Xóa
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </section>
     </div>

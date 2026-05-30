@@ -17,10 +17,13 @@ export async function PATCH(request: Request, context: RouteContext) {
       weight: String(body.weight || "").trim(),
       price: Number(body.price || 0),
       description: String(body.description || "").trim(),
-      image_url: String(body.image_url || "/images/product-rong-nho.png").trim(),
+      image_url: String(
+        body.image_url || "/images/product-rong-nho.png"
+      ).trim(),
       badge: String(body.badge || "").trim(),
       is_active: Boolean(body.is_active),
       sort_order: Number(body.sort_order || 0),
+      category_id: body.category_id ? String(body.category_id) : null,
     };
 
     if (!id) {

@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { formatVND } from "@/lib/money";
+import { Category } from "@/types/category";
 import { Product, ProductFormData } from "@/types/product";
 
 const emptyForm: ProductFormData = {
@@ -13,10 +14,12 @@ const emptyForm: ProductFormData = {
   badge: "",
   is_active: true,
   sort_order: "0",
+  category_id: "",
 };
 
 export default function ProductsTable() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState<ProductFormData>(emptyForm);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
@@ -47,8 +50,35 @@ export default function ProductsTable() {
     }
   }
 
+  async function fetchCategories() {
+    try {
+      const response = await fetch("/api/admin/categories");
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error(result.message || "Không lấy được danh mục.");
+        return;
+      }
+
+      const categoryList: Category[] = result.categories || [];
+      setCategories(categoryList);
+
+      setFormData((prev) => {
+        if (prev.category_id) return prev;
+
+        return {
+          ...prev,
+          category_id: categoryList[0]?.id || "",
+        };
+      });
+    } catch (error) {
+      console.error("Fetch categories error:", error);
+    }
+  }
+
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
 
   function handleChange(
@@ -112,7 +142,10 @@ export default function ProductsTable() {
 
   function startCreate() {
     setEditingProductId(null);
-    setFormData(emptyForm);
+    setFormData({
+      ...emptyForm,
+      category_id: categories[0]?.id || "",
+    });
     setMessage("");
   }
 
@@ -128,6 +161,7 @@ export default function ProductsTable() {
       badge: product.badge || "",
       is_active: product.is_active,
       sort_order: String(product.sort_order),
+      category_id: product.category_id || "",
     });
 
     setMessage("");
@@ -167,6 +201,7 @@ export default function ProductsTable() {
           badge: formData.badge,
           is_active: formData.is_active,
           sort_order: Number(formData.sort_order || 0),
+          category_id: formData.category_id || null,
         }),
       });
 
@@ -182,7 +217,10 @@ export default function ProductsTable() {
       );
 
       setEditingProductId(null);
-      setFormData(emptyForm);
+      setFormData({
+        ...emptyForm,
+        category_id: categories[0]?.id || "",
+      });
       await fetchProducts();
     } catch (error) {
       console.error(error);
@@ -208,6 +246,7 @@ export default function ProductsTable() {
           badge: product.badge || "",
           is_active: !product.is_active,
           sort_order: product.sort_order,
+          category_id: product.category_id || null,
         }),
       });
 
@@ -267,7 +306,7 @@ export default function ProductsTable() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Sản phẩm ở đây sẽ hiển thị tự động trên trang chủ.
+              Sản phẩm ở đây sẽ hiển thị tự động trên trang chủ theo danh mục.
             </p>
           </div>
 
@@ -293,6 +332,29 @@ export default function ProductsTable() {
               placeholder="Ví dụ: Rong nho LONG GS 500g"
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
             />
+          </div>
+
+          <div>
+            <label className="mb-2 block font-bold">Danh mục</label>
+            <select
+              name="category_id"
+              value={formData.category_id || ""}
+              onChange={handleChange}
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+            >
+              <option value="">Chưa chọn danh mục</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+
+            {categories.length === 0 && (
+              <p className="mt-2 text-sm font-bold text-red-500">
+                Chưa có danh mục. Hãy tạo danh mục trước.
+              </p>
+            )}
           </div>
 
           <div>
@@ -328,6 +390,18 @@ export default function ProductsTable() {
               value={formData.badge}
               onChange={handleChange}
               placeholder="Ví dụ: Bán chạy"
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block font-bold">Thứ tự hiển thị</label>
+            <input
+              name="sort_order"
+              type="number"
+              value={formData.sort_order}
+              onChange={handleChange}
+              placeholder="Ví dụ: 1"
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
             />
           </div>
@@ -378,19 +452,7 @@ export default function ProductsTable() {
             )}
           </div>
 
-          <div>
-            <label className="mb-2 block font-bold">Thứ tự hiển thị</label>
-            <input
-              name="sort_order"
-              type="number"
-              value={formData.sort_order}
-              onChange={handleChange}
-              placeholder="Ví dụ: 1"
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-            />
-          </div>
-
-          <label className="flex items-center gap-3 font-bold md:self-end">
+          <label className="flex items-center gap-3 font-bold md:col-span-2">
             <input
               type="checkbox"
               checked={formData.is_active}
@@ -461,12 +523,13 @@ export default function ProductsTable() {
         ) : (
           <>
             <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[1100px] border-collapse text-left">
+              <table className="w-full min-w-[1200px] border-collapse text-left">
                 <thead className="bg-emerald-700 text-white">
                   <tr>
                     <th className="p-4">Thứ tự</th>
                     <th className="p-4">Ảnh</th>
                     <th className="p-4">Tên sản phẩm</th>
+                    <th className="p-4">Danh mục</th>
                     <th className="p-4">Khối lượng</th>
                     <th className="p-4">Giá</th>
                     <th className="p-4">Nhãn</th>
@@ -483,7 +546,9 @@ export default function ProductsTable() {
                       <td className="p-4">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={product.image_url || "/images/product-rong-nho.png"}
+                          src={
+                            product.image_url || "/images/product-rong-nho.png"
+                          }
                           alt={product.name}
                           className="h-16 w-16 rounded-xl object-cover"
                         />
@@ -494,6 +559,12 @@ export default function ProductsTable() {
                         <p className="mt-1 max-w-[320px] text-sm text-slate-500">
                           {product.description || "Không có mô tả"}
                         </p>
+                      </td>
+
+                      <td className="p-4">
+                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                          {product.categories?.name || "Chưa gắn"}
+                        </span>
                       </td>
 
                       <td className="p-4 font-semibold">{product.weight}</td>
@@ -568,8 +639,8 @@ export default function ProductsTable() {
                       <p className="mt-1 text-sm text-slate-500">
                         {product.weight} - {formatVND(product.price)}
                       </p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {product.badge || "Không có nhãn"}
+                      <p className="mt-1 text-sm font-bold text-emerald-700">
+                        {product.categories?.name || "Chưa gắn danh mục"}
                       </p>
                     </div>
                   </div>

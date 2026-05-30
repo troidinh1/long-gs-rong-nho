@@ -5,7 +5,16 @@ export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from("products")
-      .select("*")
+      .select(
+        `
+        *,
+        categories (
+          id,
+          name,
+          slug
+        )
+      `
+      )
       .order("sort_order", { ascending: true });
 
     if (error) {
@@ -45,10 +54,13 @@ export async function POST(request: Request) {
     const weight = String(body.weight || "").trim();
     const price = Number(body.price || 0);
     const description = String(body.description || "").trim();
-    const image_url = String(body.image_url || "/images/product-rong-nho.png").trim();
+    const image_url = String(
+      body.image_url || "/images/product-rong-nho.png"
+    ).trim();
     const badge = String(body.badge || "").trim();
     const is_active = Boolean(body.is_active);
     const sort_order = Number(body.sort_order || 0);
+    const category_id = body.category_id ? String(body.category_id) : null;
 
     if (!name || !weight || !price) {
       return NextResponse.json(
@@ -71,6 +83,7 @@ export async function POST(request: Request) {
         badge,
         is_active,
         sort_order,
+        category_id,
       })
       .select()
       .single();
