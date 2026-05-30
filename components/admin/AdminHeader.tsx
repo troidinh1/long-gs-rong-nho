@@ -2,9 +2,10 @@
 
 export default function AdminHeader() {
   async function handleLogout() {
-    await fetch("/api/admin/logout", {
-      method: "POST",
-    });
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+
+    await supabase.auth.signOut();
 
     window.location.href = "/admin/login";
   }

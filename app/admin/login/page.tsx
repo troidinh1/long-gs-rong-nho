@@ -1,8 +1,10 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AdminLoginPage() {
+  const [email, setEmail] = useState("hmq2507@gmail.com");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -13,29 +15,29 @@ export default function AdminLoginPage() {
     setIsLoading(true);
     setMessage("");
 
-    try {
-      const response = await fetch("/api/admin/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ password }),
-      });
+    const supabase = createClient();
 
-      const result = await response.json();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-      if (!response.ok) {
-        setMessage(result.message || "Đăng nhập thất bại.");
-        return;
-      }
-
-      window.location.href = "/admin";
-    } catch (error) {
-      console.error(error);
-      setMessage("Có lỗi xảy ra. Vui lòng thử lại.");
-    } finally {
+    if (error) {
+      setMessage("Email hoặc mật khẩu không đúng.");
       setIsLoading(false);
+      return;
     }
+
+    const adminEmail = "hmq2507@gmail.com";
+
+    if (data.user.email !== adminEmail) {
+      await supabase.auth.signOut();
+      setMessage("Tài khoản này không có quyền admin.");
+      setIsLoading(false);
+      return;
+    }
+
+    window.location.href = "/admin";
   }
 
   return (
@@ -49,19 +51,31 @@ export default function AdminLoginPage() {
           <h1 className="mt-3 text-3xl font-black">Đăng nhập quản trị</h1>
 
           <p className="mt-3 text-slate-500">
-            Nhập mật khẩu admin để xem và quản lý đơn hàng.
+            Đăng nhập bằng tài khoản admin đã tạo trong Supabase Auth.
           </p>
         </div>
 
         <form onSubmit={handleLogin} className="mt-8 grid gap-4">
           <div>
-            <label className="mb-2 block font-bold">Mật khẩu admin</label>
+            <label className="mb-2 block font-bold">Email admin</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@email.com"
+              className="w-full rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block font-bold">Mật khẩu</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Nhập mật khẩu..."
+              placeholder="Nhập mật khẩu Supabase Auth..."
               className="w-full rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
             />
           </div>

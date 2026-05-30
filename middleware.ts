@@ -1,30 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isAdminPage = pathname.startsWith("/admin");
   const isAdminApi = pathname.startsWith("/api/admin");
 
   const isLoginPage = pathname === "/admin/login";
-  const isLoginApi = pathname === "/api/admin/login";
 
-  if (isLoginPage || isLoginApi) {
-    return NextResponse.next();
+  if (isLoginPage) {
+    const { response } = await updateSession(request);
+    return response;
   }
 
   if (isAdminPage || isAdminApi) {
-    const adminCookie = request.cookies.get("long_gs_admin")?.value;
+    const { response, user } = await updateSession(request);
 
-    if (adminCookie === "authenticated") {
-      return NextResponse.next();
+    const adminEmail = process.env.ADMIN_EMAIL;
+
+    if (user && adminEmail && user.email === adminEmail) {
+      return response;
     }
 
     if (isAdminApi) {
       return NextResponse.json(
         {
           success: false,
-          message: "Bạn chưa đăng nhập admin.",
+          message: "Bạn không có quyền truy cập admin.",
         },
         { status: 401 }
       );
