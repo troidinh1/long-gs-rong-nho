@@ -17,6 +17,8 @@ const fallbackProducts: Product[] = [
     is_active: true,
     sort_order: 1,
     created_at: "",
+    category_id: null,
+    categories: null,
   },
   {
     id: "fallback-500g",
@@ -29,6 +31,8 @@ const fallbackProducts: Product[] = [
     is_active: true,
     sort_order: 2,
     created_at: "",
+    category_id: null,
+    categories: null,
   },
   {
     id: "fallback-1kg",
@@ -41,6 +45,8 @@ const fallbackProducts: Product[] = [
     is_active: true,
     sort_order: 3,
     created_at: "",
+    category_id: null,
+    categories: null,
   },
 ];
 
@@ -113,15 +119,14 @@ export default function Hero() {
               href="#dat-hang"
               className="inline-flex items-center justify-center gap-3 rounded-2xl bg-emerald-700 px-8 py-4 text-base font-black text-white shadow-2xl shadow-emerald-900/25 transition hover:-translate-y-1 hover:bg-emerald-800"
             >
-              Đặt hàng ngay
-              <span>→</span>
+              Đặt hàng ngay <span>→</span>
             </a>
 
             <a
               href="#bang-gia"
               className="inline-flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-8 py-4 text-base font-black text-slate-900 shadow-sm transition hover:-translate-y-1 hover:border-emerald-300 hover:bg-emerald-50"
             >
-              Xem bảng giá
+              Xem sản phẩm
             </a>
           </div>
 

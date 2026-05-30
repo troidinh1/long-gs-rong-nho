@@ -1,3 +1,9 @@
+export type ProductCategory = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -9,6 +15,8 @@ export type Product = {
   is_active: boolean;
   sort_order: number;
   created_at: string;
+  category_id: string | null;
+  categories?: ProductCategory | null;
 };
 
 export type ProductFormData = {
@@ -20,4 +28,5 @@ export type ProductFormData = {
   badge: string;
   is_active: boolean;
   sort_order: string;
+  category_id?: string;
 };

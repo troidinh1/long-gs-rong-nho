@@ -14,12 +14,11 @@ const navItems = [
     label: "Sản phẩm",
     icon: "🛍️",
   },
-  {
-    href: "/admin/categories",
-    label: "Danh mục",
-    icon: "🏷️",
-    disabled: true,
-  },
+ {
+  href: "/admin/categories",
+  label: "Danh mục",
+  icon: "🏷️",
+},
   {
     href: "/admin/customers",
     label: "Khách hàng",

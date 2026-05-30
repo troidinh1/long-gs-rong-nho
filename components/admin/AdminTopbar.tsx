@@ -12,6 +12,10 @@ const navItems = [
     href: "/admin/products",
     label: "Sản phẩm",
   },
+  {
+    href: "/admin/categories",
+    label: "Danh mục",
+  },
 ];
 
 export default function AdminTopbar() {

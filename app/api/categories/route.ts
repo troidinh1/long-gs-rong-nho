@@ -4,27 +4,18 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
-      .from("products")
-      .select(
-        `
-        *,
-        categories (
-          id,
-          name,
-          slug
-        )
-      `
-      )
+      .from("categories")
+      .select("*")
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
 
     if (error) {
-      console.error("Get products error:", error);
+      console.error("Get categories error:", error);
 
       return NextResponse.json(
         {
           success: false,
-          message: "Không thể lấy danh sách sản phẩm.",
+          message: "Không thể lấy danh mục.",
         },
         { status: 500 }
       );
@@ -32,15 +23,15 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      products: data,
+      categories: data,
     });
   } catch (error) {
-    console.error("Products API error:", error);
+    console.error("Categories API error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        message: "Có lỗi xảy ra khi lấy sản phẩm.",
+        message: "Có lỗi xảy ra khi lấy danh mục.",
       },
       { status: 500 }
     );
